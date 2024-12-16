@@ -1,7 +1,7 @@
 // skipcq: JS-0128
-import NavBar from "../components/navbar";
+import Navbar from "../components/NavBar/Navbar";
 import localFont from "next/font/local";
-//import "./globals.css";
+import "./globals.css";
 // skipcq: JS-0128
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -23,12 +23,8 @@ export default function RootLayout({ children }) {
   return (
     <html lang="es">
       {/*<body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>*/}
-      <body>
-        <h1>Titulo</h1>
-        <NavBar></NavBar>
-        <br />
-        <br />
-        <br />
+      <body className="border border-red-500 flex flex-col h-screen">
+        <Navbar />
         {children}
       </body>
     </html>
