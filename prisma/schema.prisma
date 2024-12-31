@@ -1,0 +1,53 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Symbol {
+  id          Int         @id @default(autoincrement())
+  jsonData    Json        @map("json_data")
+  nameEs      String?     @map("name_es") // Este nombre hay que ponerlo en el .env
+  nameEu      String?     @map("name_eu") // Este nombre hay que ponerlo en el .env
+  createdAt   DateTime    @default(now()) @map("created_at")
+  categories  SymbolCategory[]
+
+  @@map("symbol")
+  @@unique([nameEs])
+  @@unique([nameEu])
+  //@@check("name_required", "name_es IS NOT NULL OR name_eu IS NOT NULL")
+}
+
+model Category {
+  id          Int         @id @default(autoincrement())
+  nameEs      String?     @map("name_es") // Este nombre hay que ponerlo en el .env
+  nameEu      String?     @map("name_eu") // Este nombre hay que ponerlo en el .env
+  createdAt   DateTime    @default(now()) @map("created_at")
+  symbols     SymbolCategory[]
+
+  @@map("category")
+  @@unique([nameEs])
+  @@unique([nameEu])
+ //@@check("name_required", "name_es IS NOT NULL OR name_eu IS NOT NULL")
+}
+
+model SymbolCategory {
+  id          Int         @id @default(autoincrement())
+  symbolId    Int
+  categoryId  Int
+  Symbol      Symbol      @relation(fields: [symbolId], references: [id], onDelete: Cascade)
+  Category    Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@map("symbol_category")
+  @@unique([symbolId, categoryId]) // Asegura que no haya duplicados
+}
+
