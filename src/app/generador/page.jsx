@@ -176,27 +176,45 @@ export default function Generador() {
       setArcs(currentArcs);
     }
   }
-  function move(selectedIndices, items, setItems, deltaX, deltaY) {
-    if (selectedIndices.length > 0) {
-      const currentSelecteds = [...items];
-      for (let i = 0; i < selectedIndices.length; i++) {
-        const index = selectedIndices[i];
-        currentSelecteds[index]?.x !== undefined && (currentSelecteds[index].x += deltaX);
-        currentSelecteds[index]?.y !== undefined && (currentSelecteds[index].y += deltaY);
-        currentSelecteds[index]?.x1 !== undefined && (currentSelecteds[index].x1 += deltaX);
-        currentSelecteds[index]?.y1 !== undefined && (currentSelecteds[index].y1 += deltaY);
-        currentSelecteds[index]?.x2 !== undefined && (currentSelecteds[index].x2 += deltaX);
-        currentSelecteds[index]?.y2 !== undefined && (currentSelecteds[index].y2 += deltaY);
-        currentSelecteds[index]?.sx !== undefined && (currentSelecteds[index].sx += deltaX);
-        currentSelecteds[index]?.sy !== undefined && (currentSelecteds[index].sy += deltaY);
-        currentSelecteds[index]?.mx !== undefined && (currentSelecteds[index].mx += deltaX);
-        currentSelecteds[index]?.my !== undefined && (currentSelecteds[index].my += deltaY);
-        currentSelecteds[index]?.ex !== undefined && (currentSelecteds[index].ex += deltaX);
-        currentSelecteds[index]?.ey !== undefined && (currentSelecteds[index].ey += deltaY);
-        currentSelecteds[index]?.cx !== undefined && (currentSelecteds[index].cx += deltaX);
-        currentSelecteds[index]?.cy !== undefined && (currentSelecteds[index].cy += deltaY);
+
+  function move(who, deltaX, deltaY) {
+    const elements = {
+      line: { selectedIndices: selectedLineIndices, items: lines, setItems: setLines },
+      circle: { selectedIndices: selectedCircleIndices, items: circles, setItems: setCircles },
+      rectangle: { selectedIndices: selectedRectangleIndices, items: rectangles, setItems: setRectangles },
+      curve: { selectedIndices: selectedCurveIndices, items: curves, setItems: setCurves },
+      arc: { selectedIndices: selectedArcIndices, items: arcs, setItems: setArcs },
+    };
+    if (elements[who].selectedIndices.length > 0) {
+      const currentSelecteds = [...elements[who].items];
+      for (let i = 0; i < elements[who].selectedIndices.length; i++) {
+        const index = elements[who].selectedIndices[i];
+        if (who == "line") {
+          currentSelecteds[index].x1 += deltaX;
+          currentSelecteds[index].x2 += deltaX;
+          currentSelecteds[index].y1 += deltaY;
+          currentSelecteds[index].y2 += deltaY;
+        } else if (who == "circle") {
+          currentSelecteds[index].cx += deltaX;
+          currentSelecteds[index].cy += deltaY;
+        } else if (who == "rectangle") {
+          currentSelecteds[index].x += deltaX;
+          currentSelecteds[index].y += deltaY;
+        } else if (who == "curve") {
+          currentSelecteds[index].sx += deltaX;
+          currentSelecteds[index].sy += deltaY;
+          currentSelecteds[index].mx += deltaX;
+          currentSelecteds[index].my += deltaY;
+          currentSelecteds[index].ex += deltaX;
+          currentSelecteds[index].ey += deltaY;
+        } else if (who == "arc") {
+          currentSelecteds[index].sx += deltaX;
+          currentSelecteds[index].sy += deltaY;
+          currentSelecteds[index].ex += deltaX;
+          currentSelecteds[index].ey += deltaY;
+        }
       }
-      setArcs(currentSelecteds);
+      elements[who].setItems(currentSelecteds);
     }
   }
   function moveItems(deltaX, deltaY) {
