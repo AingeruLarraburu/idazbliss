@@ -13,12 +13,13 @@ export function checkKeys(namesArray, obj) {
   // Verificar si todas las claves del objeto están en el array de nombres
   for (const key of keys) {
     if (!namesArray.includes(key)) {
-      console.log("No esta en el array");
-      console.log(key);
-      console.log(namesArray);
       return false; // Si una key no está en el array, devolver false
     }
   }
 
   return true; // Si todas las claves están en el array, devolver true
+}
+
+export function copyObjectWithArrays(original) {
+  return Object.fromEntries(Object.entries(original).map(([key, value]) => [key, [...value]]));
 }

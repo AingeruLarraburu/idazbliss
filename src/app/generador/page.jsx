@@ -1,7 +1,21 @@
 "use client";
 import { useState, useEffect } from "react";
+import Symbol from "@/components/symbol";
+
+import {
+  numHorizontal,
+  numVertical,
+  squareSize,
+  firstDivision,
+  secondDivision,
+  viewBoxWidth,
+  viewBoxHeight,
+} from "@/config/config";
+
+import { copyObjectWithArrays } from "@/utils/objects";
 
 export default function Generador() {
+  const [normalized, setNormalized] = useState({});
   const [startCoords, setStartCoords] = useState({ x: 0, y: 0 });
   const [endCoords, setEndCoords] = useState({ x: 0, y: 0 });
   const [isDrawing, setIsDrawing] = useState(false);
@@ -13,6 +27,9 @@ export default function Generador() {
   const [curves, setCurves] = useState([]);
   const [arcs, setArcs] = useState([]);
   const [rectangles, setRectangles] = useState([]);
+  const [es, setEs] = useState("");
+  const [eus, setEus] = useState("");
+  const [modalAbierto, setModalAbierto] = useState(false);
   const tools = [
     "line",
     "circle",
@@ -37,27 +54,345 @@ export default function Generador() {
   const [selectedCurveIndices, setSelectedCurveIndices] = useState([]);
   const [selectedArcIndices, setSelectedArcIndices] = useState([]);
 
-  const numHorizontal = 30;
-  const numVertical = 10;
-  const squareSize = 10;
-  const firstDivision = 40;
-  const secondDivision = 80;
+  const handleEsChange = (event) => {
+    setEs(event.target.value);
+  };
 
-  const viewBoxWidth = numHorizontal * squareSize;
-  const viewBoxHeight = numVertical * squareSize;
+  const handleEusChange = (event) => {
+    setEus(event.target.value);
+  };
 
-  async function createSymbol() {
-    console.log("createSymbol");
+  const handleConfirmar = async () => {
+    // Aquí puedes agregar la lógica para guardar los nombres
+    console.log("Nombres guardados:");
+    console.log(normalized);
     const respuesta = await fetch("/api/symbols", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        names: { nameEs: "Casa", nameEu: "Etxea" },
-        symbol: { lines: lines, circles: circles, curves: curves, arcs: arcs, rectangles: rectangles },
+        names: { nameEs: es, nameEu: eus },
+        symbol: normalized,
       }),
     });
+    const mensaje = await respuesta.json();
+    console.log(mensaje);
+    if (mensaje && mensaje.error) {
+      alert("Error al guardar: " + mensaje.error);
+    }
+    setModalAbierto(false);
+  };
+
+  function filterSelected() {
+    const symbolLines = [];
+    selectedLineIndices.forEach((index, iter) => {
+      //symbolLines.push(lines[index]);
+      symbolLines[iter] = { ...lines[index] };
+    });
+    const symbolCircles = [];
+    selectedCircleIndices.forEach((index, iter) => {
+      //symbolCircles.push(circles[index]);
+      symbolCircles[iter] = { ...circles[index] };
+    });
+    const symbolRectangles = [];
+    selectedRectangleIndices.forEach((index, iter) => {
+      //symbolRectangles.push(rectangles[index]);
+      symbolRectangles[iter] = { ...rectangles[index] };
+    });
+    const symbolCurves = [];
+    selectedCurveIndices.forEach((index, iter) => {
+      //symbolCurves.push(curves[index]);
+      symbolCurves[iter] = { ...curves[index] };
+    });
+    const symbolArcs = [];
+    selectedArcIndices.forEach((index, iter) => {
+      //symbolArcs.push(arcs[index]);
+      symbolArcs[iter] = { ...arcs[index] };
+    });
+    return {
+      lines: symbolLines,
+      circles: symbolCircles,
+      rectangles: symbolRectangles,
+      curves: symbolCurves,
+      arcs: symbolArcs,
+    };
+  }
+
+  function getBoundaries(symbol) {
+    var Xmin = 1000000;
+    var Ymin = 1000000;
+    var Xmax = -1000000;
+    var Ymax = -1000000;
+    console.log(symbol);
+    for (let i = 0; i < symbol.lines.length; i++) {
+      const line = symbol.lines[i];
+      if (line.x1 < Xmin) {
+        Xmin = line.x1;
+      }
+      if (line.x2 < Xmin) {
+        Xmin = line.x2;
+      }
+      if (line.y1 < Ymin) {
+        Ymin = line.y1;
+      }
+      if (line.y2 < Ymin) {
+        Ymin = line.y2;
+      }
+      if (line.x1 > Xmax) {
+        Xmax = line.x1;
+      }
+      if (line.x2 > Xmax) {
+        Xmax = line.x2;
+      }
+      if (line.y1 > Ymax) {
+        Ymax = line.y1;
+      }
+      if (line.y2 > Ymax) {
+        Ymax = line.y2;
+      }
+    }
+    for (let i = 0; i < symbol.circles.length; i++) {
+      const circle = symbol.circles[i];
+      if (circle.cx - circle.r < Xmin) {
+        Xmin = circle.cx - circle.r;
+      }
+      if (circle.cy - circle.r < Ymin) {
+        Ymin = circle.cy - circle.r;
+      }
+      if (circle.cx + circle.r > Xmax) {
+        Xmax = circle.cx + circle.r;
+      }
+      if (circle.cy + circle.r > Ymax) {
+        Ymax = circle.cy + circle.r;
+      }
+    }
+    for (let i = 0; i < symbol.rectangles.length; i++) {
+      const rectangle = symbol.rectangles[i];
+      console.log("Aqui");
+      if (rectangle.x < Xmin) {
+        Xmin = rectangle.x;
+      }
+      if (rectangle.y < Ymin) {
+        Ymin = rectangle.y;
+      }
+      if (rectangle.x + rectangle.width > Xmax) {
+        Xmax = rectangle.x + rectangle.width;
+      }
+      if (rectangle.y + rectangle.height > Ymax) {
+        Ymax = rectangle.y + rectangle.height;
+      }
+    }
+    for (let i = 0; i < symbol.arcs.length; i++) {
+      const arc = symbol.arcs[i];
+      if (arc.sx < Xmin) {
+        Xmin = arc.sx;
+      }
+      if (arc.ex < Xmin) {
+        Xmin = arc.ex;
+      }
+      if (arc.sy < Ymin) {
+        Ymin = arc.sy;
+      }
+      if (arc.ey < Ymin) {
+        Ymin = arc.ey;
+      }
+      if (arc.sx > Xmax) {
+        Xmax = arc.sx;
+      }
+      if (arc.ex > Xmax) {
+        Xmax = arc.ex;
+      }
+      if (arc.sy > Ymax) {
+        Ymax = arc.sy;
+      }
+      if (arc.ey > Ymax) {
+        Ymax = arc.ey;
+      }
+      //Semicirculo vertical
+      if (arc.sx == arc.ex) {
+        if (arc.sy < arc.ey) {
+          if (arc.h == 1) {
+            const arcMX = arc.sx + arc.r;
+            if (arcMX < Xmin) {
+              Xmin = arcMX;
+            }
+            if (arcMX > Xmax) {
+              Xmax = arcMX;
+            }
+          } else {
+            const arcMX = arc.sx - arc.r;
+            if (arcMX < Xmin) {
+              Xmin = arcMX;
+            }
+            if (arcMX > Xmax) {
+              Xmax = arcMX;
+            }
+          }
+        } else {
+          if (arc.h == 1) {
+            const arcMX = arc.sx - arc.r;
+            if (arcMX < Xmin) {
+              Xmin = arcMX;
+            }
+            if (arcMX > Xmax) {
+              Xmax = arcMX;
+            }
+          } else {
+            const arcMX = arc.sx + arc.r;
+            if (arcMX < Xmin) {
+              Xmin = arcMX;
+            }
+            if (arcMX > Xmax) {
+              Xmax = arcMX;
+            }
+          }
+        }
+      }
+      //Semicirculo horizontal
+      if (arc.sy == arc.ey) {
+        if (arc.sx < arc.ex) {
+          if (arc.h == 1) {
+            const arcMY = arc.sy + arc.r;
+            if (arcMY < Ymin) {
+              Ymin = arcMY;
+            }
+            if (arcMY > Ymax) {
+              Ymax = arcMY;
+            }
+          } else {
+            const arcMY = arc.sy - arc.r;
+            if (arcMY < Ymin) {
+              Ymin = arcMY;
+            }
+            if (arcMY > Ymax) {
+              Ymax = arcMY;
+            }
+          }
+        } else {
+          if (arc.h == 1) {
+            const arcMY = arc.sy - arc.r;
+            if (arcMY < Ymin) {
+              Ymin = arcMY;
+            }
+            if (arcMY > Ymax) {
+              Ymax = arcMY;
+            }
+          } else {
+            const arcMY = arc.sy + arc.r;
+            if (arcMY < Ymin) {
+              Ymin = arcMY;
+            }
+            if (arcMY > Ymax) {
+              Ymax = arcMY;
+            }
+          }
+        }
+      }
+    }
+    for (let i = 0; i < symbol.curves.length; i++) {
+      const curve = symbol.curves[i];
+      if (curve.sx < Xmin) {
+        Xmin = curve.sx;
+      }
+      if (curve.ex < Xmin) {
+        Xmin = curve.ex;
+      }
+      if (curve.sy < Ymin) {
+        Ymin = curve.sy;
+      }
+      if (curve.ey < Ymin) {
+        Ymin = curve.ey;
+      }
+      if (curve.sx > Xmax) {
+        Xmax = curve.sx;
+      }
+      if (curve.ex > Xmax) {
+        Xmax = curve.ex;
+      }
+      if (curve.sy > Ymax) {
+        Ymax = curve.sy;
+      }
+      if (curve.ey > Ymax) {
+        Ymax = curve.ey;
+      }
+      // Curva vertical
+      if (curve.sx == curve.ex) {
+        const curveMX = (curve.sx + curve.mx) / 2;
+        if (curveMX < Xmin) {
+          Xmin = curveMX;
+        }
+        if (curveMX > Xmax) {
+          Xmax = curveMX;
+        }
+      }
+      // Curva horizontal
+      if (curve.sy == curve.ey) {
+        const curveMY = (curve.sy + curve.my) / 2;
+        if (curveMY < Ymin) {
+          Ymin = curveMY;
+        }
+        if (curveMY > Ymax) {
+          Ymax = curveMY;
+        }
+      }
+      //Curva reloj de arena vale con los dos puntos
+    }
+    Xmin = Math.floor(Xmin / squareSize) * squareSize;
+    Ymin = Math.floor(Ymin / squareSize) * squareSize;
+    Xmax = Math.ceil(Xmax / squareSize) * squareSize;
+    Ymax = Math.ceil(Ymax / squareSize) * squareSize;
+    return { Xmin, Ymin, Xmax, Ymax };
+  }
+
+  function normalizeSymbol() {
+    const symbol = filterSelected();
+    const boundaries = getBoundaries(symbol);
+    if (boundaries.Xmin >= 0 && boundaries.Xmin <= numHorizontal * squareSize) {
+      if (boundaries.Xmax >= 0 && boundaries.Xmax <= numHorizontal * squareSize) {
+        if (boundaries.Ymin >= 0 && boundaries.Ymin <= numVertical * squareSize) {
+          if (boundaries.Ymax >= 0 && boundaries.Ymax <= numVertical * squareSize) {
+            console.log("Is ok");
+            for (let i = 0; i < symbol.lines.length; i++) {
+              const line = symbol.lines[i];
+              line.x1 = line.x1 - boundaries.Xmin;
+              line.x2 = line.x2 - boundaries.Xmin;
+            }
+            for (let i = 0; i < symbol.circles.length; i++) {
+              const circle = symbol.circles[i];
+              circle.cx = circle.cx - boundaries.Xmin;
+            }
+            for (let i = 0; i < symbol.rectangles.length; i++) {
+              const rectangle = symbol.rectangles[i];
+              rectangle.x = rectangle.x - boundaries.Xmin;
+            }
+            for (let i = 0; i < symbol.arcs.length; i++) {
+              const arc = symbol.arcs[i];
+              arc.sx = arc.sx - boundaries.Xmin;
+              arc.ex = arc.ex - boundaries.Xmin;
+            }
+            for (let i = 0; i < symbol.curves.length; i++) {
+              const curve = symbol.curves[i];
+              curve.sx = curve.sx - boundaries.Xmin;
+              curve.ex = curve.ex - boundaries.Xmin;
+              curve.mx = curve.mx - boundaries.Xmin;
+            }
+            symbol.width = (boundaries.Xmax - boundaries.Xmin) / squareSize;
+            setNormalized(symbol);
+            return symbol;
+          }
+        }
+      }
+    }
+    setNormalized({ width: numHorizontal });
+    return {};
+  }
+
+  function createSymbol() {
+    console.log("createSymbol");
+    const normalized = normalizeSymbol();
+    console.log(normalized);
+    setModalAbierto(true);
   }
 
   function getScaledEventPoint(e) {
@@ -112,71 +447,6 @@ export default function Generador() {
     }
   }
 
-  function moveLines(deltaX, deltaY) {
-    if (selectedLineIndices.length > 0) {
-      const currentLines = [...lines];
-      for (let i = 0; i < selectedLineIndices.length; i++) {
-        const index = selectedLineIndices[i];
-
-        currentLines[index].x1 += deltaX;
-        currentLines[index].x2 += deltaX;
-        currentLines[index].y1 += deltaY;
-        currentLines[index].y2 += deltaY;
-      }
-      setLines(currentLines);
-    }
-  }
-  function moveCircles(deltaX, deltaY) {
-    if (selectedCircleIndices.length > 0) {
-      const currentCircles = [...circles];
-      for (let i = 0; i < selectedCircleIndices.length; i++) {
-        const index = selectedCircleIndices[i];
-        currentCircles[index].cx += deltaX;
-        currentCircles[index].cy += deltaY;
-      }
-      setCircles(currentCircles);
-    }
-  }
-  function moveRectangles(deltaX, deltaY) {
-    if (selectedRectangleIndices.length > 0) {
-      const currentRectangles = [...rectangles];
-      for (let i = 0; i < selectedRectangleIndices.length; i++) {
-        const index = selectedRectangleIndices[i];
-        currentRectangles[index].x += deltaX;
-        currentRectangles[index].y += deltaY;
-      }
-      setRectangles(currentRectangles);
-    }
-  }
-  function moveCurves(deltaX, deltaY) {
-    if (selectedCurveIndices.length > 0) {
-      const currentCurves = [...curves];
-      for (let i = 0; i < selectedCurveIndices.length; i++) {
-        const index = selectedCurveIndices[i];
-        currentCurves[index].sx += deltaX;
-        currentCurves[index].sy += deltaY;
-        currentCurves[index].mx += deltaX;
-        currentCurves[index].my += deltaY;
-        currentCurves[index].ex += deltaX;
-        currentCurves[index].ey += deltaY;
-      }
-      setCurves(currentCurves);
-    }
-  }
-  function moveArcs(deltaX, deltaY) {
-    if (selectedArcIndices.length > 0) {
-      const currentArcs = [...arcs];
-      for (let i = 0; i < selectedArcIndices.length; i++) {
-        const index = selectedArcIndices[i];
-        currentArcs[index].sx += deltaX;
-        currentArcs[index].sy += deltaY;
-        currentArcs[index].ex += deltaX;
-        currentArcs[index].ey += deltaY;
-      }
-      setArcs(currentArcs);
-    }
-  }
-
   function move(who, deltaX, deltaY) {
     const elements = {
       line: { selectedIndices: selectedLineIndices, items: lines, setItems: setLines },
@@ -218,16 +488,11 @@ export default function Generador() {
     }
   }
   function moveItems(deltaX, deltaY) {
-    /*     moveLines(deltaX, deltaY);
-    moveCircles(deltaX, deltaY);
-    moveRectangles(deltaX, deltaY);
-    moveCurves(deltaX, deltaY);
-    moveArcs(deltaX, deltaY); */
-    move(selectedLineIndices, lines, setLines, deltaX, deltaY);
-    move(selectedCircleIndices, circles, setCircles, deltaX, deltaY);
-    move(selectedRectangleIndices, rectangles, setRectangles, deltaX, deltaY);
-    move(selectedCurveIndices, curves, setCurves, deltaX, deltaY);
-    move(selectedArcIndices, arcs, setArcs, deltaX, deltaY);
+    move("line", deltaX, deltaY);
+    move("circle", deltaX, deltaY);
+    move("rectangle", deltaX, deltaY);
+    move("curve", deltaX, deltaY);
+    move("arc", deltaX, deltaY);
   }
   function handleMouseMove(e) {
     e.preventDefault();
@@ -555,7 +820,7 @@ export default function Generador() {
           x: startCoords.x,
           y: endCoords.y,
         };
-        // Horario en segundo y cuarto cuadrante, si no antihorario
+        // Horario en primer y tercer cuadrante, si no antihorario
         const horario = (endCoords.x - startCoords.x) * (endCoords.y - startCoords.y) > 0 ? 1 : 0;
         if (startCoords.y !== endCoords.y) {
           setArcs((prevArcs) => [
@@ -635,9 +900,9 @@ export default function Generador() {
 
   return (
     <div className="flex h-screen bg-gray-100">
-      <div className="w-1/3 bg-white shadow-lg flex flex-col p-4">
+      <div className="w-1/3 bg-white shadow-lg flex flex-col p-2">
         {/* Contenedor para las herramientas, organizadas en dos columnas */}
-        <div className="flex flex-wrap gap-4">
+        <div className="flex flex-wrap gap-2">
           {/* Boton para la linea */}
           <button
             onClick={() => handleToolSelect(tools.indexOf("line"))}
@@ -1032,11 +1297,11 @@ export default function Generador() {
         </div>
       </div>
 
-      <div className="flex-1 bg-gray-50 p-6 flex flex-col items-center justify-start">
+      <div className="flex-1 bg-gray-50 p-1 flex flex-col items-center justify-start gap-2 border">
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          className="w-full h-full max-w-5xl max-h-screen border"
-          viewBox={`0 0 ${viewBoxWidth} ${viewBoxHeight}`}
+          className="w-full max-w-5xl max-h-screen"
+          viewBox={`-2 -2 ${viewBoxWidth + 4} ${viewBoxHeight + 4}`}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
@@ -1426,7 +1691,60 @@ export default function Generador() {
               />
             )}
         </svg>
-        <button onClick={createSymbol}>Generar símbolo</button>
+        <div className="w-full flex flex-col p-1 gap-1 border items-center">
+          {/* Div para los inputs */}
+          <div className="flex w-full gap-1 rounded items-center justify-between">
+            <input
+              id="Es"
+              type="text"
+              value={es}
+              placeholder="Castellano"
+              onChange={handleEsChange}
+              className="flex-1 p-1 border border-gray-400 rounded focus:outline-none focus:ring-2 focus:ring-slate-500"
+            />
+            <input
+              id="Eus"
+              type="text"
+              placeholder="Euskara"
+              value={eus}
+              onChange={handleEusChange}
+              className="flex-1 p-1 border border-gray-400 rounded focus:outline-none focus:ring-2 focus:ring-slate-500"
+            />
+          </div>
+
+          {/* Botón de guardar */}
+          <button
+            onClick={createSymbol}
+            className="w-full bg-slate-500 text-white p-1 rounded hover:bg-slate-600 transition"
+          >
+            Guardar
+          </button>
+        </div>
+        {modalAbierto && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+            <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full">
+              <h2 className="text-xl font-bold mb-4">Confirmar guardado</h2>
+              <p className="mb-1">Español: {es}</p>
+              <p className="mb-1">Euskara: {eus}</p>
+              <p className="mb-1">Símbolo:</p>
+              <Symbol className="h-24" symbol={normalized}></Symbol>
+              <div className="flex justify-between space-x-4">
+                <button
+                  onClick={() => setModalAbierto(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleConfirmar}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  Confirmar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

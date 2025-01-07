@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import prisma from "@/libs/db";
 import { checkKeys, isNotNullObject } from "@/utils/objects";
-import { quitarTildesEspaciosMinuscula } from "@/utils/textUtils";
 import { getSession, isadmin } from "@/libs/auth";
 
-export async function GET() {
+export async function GET(request, { params }) {
   try {
-    // Obtener todos los registros de la tabla symbol y las categorías asociadas
-    const symbols = await prisma.symbol.findMany({
+    console.log("SymbolId: ", params.id);
+    const symbol = await prisma.symbol.findUnique({
+      where: { id: Number(params.id) },
       include: {
         categories: {
           include: {
@@ -16,26 +16,25 @@ export async function GET() {
         },
       },
     });
-
-    // Retornar la respuesta con los datos en formato JSON
-    return NextResponse.json(symbols);
+    return NextResponse.json(symbol);
   } catch (error) {
-    console.error("Error fetching symbols:", error);
-
-    // Retornar una respuesta de error con un mensaje adecuado
-    return NextResponse.json([]);
+    console.log(error);
+    return NextResponse.json({});
   }
 }
 
-export async function POST(request, { params }) {
+export async function PUT(request, { params }) {
   // Simulate fetching data from a database or external API
   const { names, symbol } = await request.json();
+  console.log(names);
+  console.log(symbol);
+  const languageKeys = ["nameEs", "nameEu"];
+  const symbolKeys = ["lines", "circles", "curves", "arcs", "rectangles", "width"];
+  // Comprobamos que esté autorizado
   const session = await getSession();
   if (!(session && session.user && session.user.email && isadmin(session.user.email))) {
     return NextResponse.json({ error: "No estás autorizado" });
   }
-  const languageKeys = ["nameEs", "nameEu"];
-  const symbolKeys = ["lines", "circles", "curves", "arcs", "rectangles", "width"];
   // Comprobamos que los parámetros recibidos son json
   if (!isNotNullObject(symbol)) {
     return NextResponse.json({ error: "Symbol not json" });
@@ -68,36 +67,36 @@ export async function POST(request, { params }) {
   }
 
   try {
-    const symbols = await prisma.symbol.findMany({
-      select: {
-        nameEs: true,
-        nameEu: true,
-      },
-    });
-    const normalizedEs = quitarTildesEspaciosMinuscula(names.nameEs);
-    const normalizedEu = quitarTildesEspaciosMinuscula(names.nameEu);
-    const existe =
-      symbols.length == 0
-        ? false
-        : symbols.some((symbol) => {
-            const nameEsNormalized = symbol.nameEs ? quitarTildesEspaciosMinuscula(symbol.nameEs) : "";
-            const nameEuNormalized = symbol.nameEu ? quitarTildesEspaciosMinuscula(symbol.nameEu) : "";
-            return nameEsNormalized == normalizedEs || nameEuNormalized == normalizedEu;
-          });
-    if (!existe) {
-      const toCreate = {
-        jsonData: symbol,
-      };
-      for (const key in names) {
-        toCreate[key] = names[key];
-      }
-      const newSymbol = await prisma.symbol.create({
-        data: toCreate, // Pasamos el objeto con los datos del nuevo símbolo
-      });
-      return NextResponse.json(newSymbol);
+    const toCreate = {
+      jsonData: symbol,
+    };
+    for (const key in names) {
+      toCreate[key] = names[key];
     }
-    return NextResponse.json({ error: "El nombre ya existe" });
+    const newSymbol = await prisma.symbol.update({
+      where: { id: Number(params.id) },
+      data: toCreate, // Pasamos el objeto con los datos del nuevo símbolo
+    });
+    console.log("epet");
+    console.log(newSymbol);
+    return NextResponse.json(newSymbol);
   } catch (error) {
     return NextResponse.json({ error: error.message });
+  }
+}
+
+export async function DELETE(request, { params }) {
+  // Comprobamos que esté autorizado
+  const session = await getSession();
+  if (!(session && session.user && session.user.email && isadmin(session.user.email))) {
+    return NextResponse.json({ error: "No estás autorizado" });
+  }
+  try {
+    console.log("Symbol removing");
+    const symbolRemoved = await prisma.symbol.delete({ where: { id: Number(params.id) } });
+    console.log("Symbol removed");
+    return NextResponse.json(symbolRemoved);
+  } catch (error) {
+    return NextResponse.json(error.message);
   }
 }

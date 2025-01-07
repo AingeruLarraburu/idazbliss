@@ -26,3 +26,7 @@ bun dev
 ```
 
 Abrir [http://localhost:3000](http://localhost:3000) en tu navegador
+
+    //"dev": "next dev --experimental-https -p 8006",
+
+    https://letsencrypt.org/es/
