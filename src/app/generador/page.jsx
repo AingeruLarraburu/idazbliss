@@ -1,7 +1,21 @@
 "use client";
 import { useState, useEffect } from "react";
+import Symbol from "@/components/symbol";
+
+import {
+  numHorizontal,
+  numVertical,
+  squareSize,
+  firstDivision,
+  secondDivision,
+  viewBoxWidth,
+  viewBoxHeight,
+} from "@/config/config";
+
+import { copyObjectWithArrays } from "@/utils/objects";
 
 export default function Generador() {
+  const [normalized, setNormalized] = useState({});
   const [startCoords, setStartCoords] = useState({ x: 0, y: 0 });
   const [endCoords, setEndCoords] = useState({ x: 0, y: 0 });
   const [isDrawing, setIsDrawing] = useState(false);
@@ -13,6 +27,9 @@ export default function Generador() {
   const [curves, setCurves] = useState([]);
   const [arcs, setArcs] = useState([]);
   const [rectangles, setRectangles] = useState([]);
+  const [es, setEs] = useState("");
+  const [eus, setEus] = useState("");
+  const [modalAbierto, setModalAbierto] = useState(false);
   const tools = [
     "line",
     "circle",
@@ -37,14 +54,346 @@ export default function Generador() {
   const [selectedCurveIndices, setSelectedCurveIndices] = useState([]);
   const [selectedArcIndices, setSelectedArcIndices] = useState([]);
 
-  const numHorizontal = 30;
-  const numVertical = 10;
-  const squareSize = 10;
-  const firstDivision = 40;
-  const secondDivision = 80;
+  const handleEsChange = (event) => {
+    setEs(event.target.value);
+  };
 
-  const viewBoxWidth = numHorizontal * squareSize;
-  const viewBoxHeight = numVertical * squareSize;
+  const handleEusChange = (event) => {
+    setEus(event.target.value);
+  };
+
+  const handleConfirmar = async () => {
+    // Aquí puedes agregar la lógica para guardar los nombres
+    console.log("Nombres guardados:");
+    console.log(normalized);
+    const respuesta = await fetch("/api/symbols", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        names: { nameEs: es, nameEu: eus },
+        symbol: normalized,
+      }),
+    });
+    const mensaje = await respuesta.json();
+    console.log(mensaje);
+    if (mensaje && mensaje.error) {
+      alert("Error al guardar: " + mensaje.error);
+    }
+    setModalAbierto(false);
+  };
+
+  function filterSelected() {
+    const symbolLines = [];
+    selectedLineIndices.forEach((index, iter) => {
+      //symbolLines.push(lines[index]);
+      symbolLines[iter] = { ...lines[index] };
+    });
+    const symbolCircles = [];
+    selectedCircleIndices.forEach((index, iter) => {
+      //symbolCircles.push(circles[index]);
+      symbolCircles[iter] = { ...circles[index] };
+    });
+    const symbolRectangles = [];
+    selectedRectangleIndices.forEach((index, iter) => {
+      //symbolRectangles.push(rectangles[index]);
+      symbolRectangles[iter] = { ...rectangles[index] };
+    });
+    const symbolCurves = [];
+    selectedCurveIndices.forEach((index, iter) => {
+      //symbolCurves.push(curves[index]);
+      symbolCurves[iter] = { ...curves[index] };
+    });
+    const symbolArcs = [];
+    selectedArcIndices.forEach((index, iter) => {
+      //symbolArcs.push(arcs[index]);
+      symbolArcs[iter] = { ...arcs[index] };
+    });
+    return {
+      lines: symbolLines,
+      circles: symbolCircles,
+      rectangles: symbolRectangles,
+      curves: symbolCurves,
+      arcs: symbolArcs,
+    };
+  }
+
+  function getBoundaries(symbol) {
+    var Xmin = 1000000;
+    var Ymin = 1000000;
+    var Xmax = -1000000;
+    var Ymax = -1000000;
+    console.log(symbol);
+    for (let i = 0; i < symbol.lines.length; i++) {
+      const line = symbol.lines[i];
+      if (line.x1 < Xmin) {
+        Xmin = line.x1;
+      }
+      if (line.x2 < Xmin) {
+        Xmin = line.x2;
+      }
+      if (line.y1 < Ymin) {
+        Ymin = line.y1;
+      }
+      if (line.y2 < Ymin) {
+        Ymin = line.y2;
+      }
+      if (line.x1 > Xmax) {
+        Xmax = line.x1;
+      }
+      if (line.x2 > Xmax) {
+        Xmax = line.x2;
+      }
+      if (line.y1 > Ymax) {
+        Ymax = line.y1;
+      }
+      if (line.y2 > Ymax) {
+        Ymax = line.y2;
+      }
+    }
+    for (let i = 0; i < symbol.circles.length; i++) {
+      const circle = symbol.circles[i];
+      if (circle.cx - circle.r < Xmin) {
+        Xmin = circle.cx - circle.r;
+      }
+      if (circle.cy - circle.r < Ymin) {
+        Ymin = circle.cy - circle.r;
+      }
+      if (circle.cx + circle.r > Xmax) {
+        Xmax = circle.cx + circle.r;
+      }
+      if (circle.cy + circle.r > Ymax) {
+        Ymax = circle.cy + circle.r;
+      }
+    }
+    for (let i = 0; i < symbol.rectangles.length; i++) {
+      const rectangle = symbol.rectangles[i];
+      console.log("Aqui");
+      if (rectangle.x < Xmin) {
+        Xmin = rectangle.x;
+      }
+      if (rectangle.y < Ymin) {
+        Ymin = rectangle.y;
+      }
+      if (rectangle.x + rectangle.width > Xmax) {
+        Xmax = rectangle.x + rectangle.width;
+      }
+      if (rectangle.y + rectangle.height > Ymax) {
+        Ymax = rectangle.y + rectangle.height;
+      }
+    }
+    for (let i = 0; i < symbol.arcs.length; i++) {
+      const arc = symbol.arcs[i];
+      if (arc.sx < Xmin) {
+        Xmin = arc.sx;
+      }
+      if (arc.ex < Xmin) {
+        Xmin = arc.ex;
+      }
+      if (arc.sy < Ymin) {
+        Ymin = arc.sy;
+      }
+      if (arc.ey < Ymin) {
+        Ymin = arc.ey;
+      }
+      if (arc.sx > Xmax) {
+        Xmax = arc.sx;
+      }
+      if (arc.ex > Xmax) {
+        Xmax = arc.ex;
+      }
+      if (arc.sy > Ymax) {
+        Ymax = arc.sy;
+      }
+      if (arc.ey > Ymax) {
+        Ymax = arc.ey;
+      }
+      //Semicirculo vertical
+      if (arc.sx == arc.ex) {
+        if (arc.sy < arc.ey) {
+          if (arc.h == 1) {
+            const arcMX = arc.sx + arc.r;
+            if (arcMX < Xmin) {
+              Xmin = arcMX;
+            }
+            if (arcMX > Xmax) {
+              Xmax = arcMX;
+            }
+          } else {
+            const arcMX = arc.sx - arc.r;
+            if (arcMX < Xmin) {
+              Xmin = arcMX;
+            }
+            if (arcMX > Xmax) {
+              Xmax = arcMX;
+            }
+          }
+        } else {
+          if (arc.h == 1) {
+            const arcMX = arc.sx - arc.r;
+            if (arcMX < Xmin) {
+              Xmin = arcMX;
+            }
+            if (arcMX > Xmax) {
+              Xmax = arcMX;
+            }
+          } else {
+            const arcMX = arc.sx + arc.r;
+            if (arcMX < Xmin) {
+              Xmin = arcMX;
+            }
+            if (arcMX > Xmax) {
+              Xmax = arcMX;
+            }
+          }
+        }
+      }
+      //Semicirculo horizontal
+      if (arc.sy == arc.ey) {
+        if (arc.sx < arc.ex) {
+          if (arc.h == 1) {
+            const arcMY = arc.sy + arc.r;
+            if (arcMY < Ymin) {
+              Ymin = arcMY;
+            }
+            if (arcMY > Ymax) {
+              Ymax = arcMY;
+            }
+          } else {
+            const arcMY = arc.sy - arc.r;
+            if (arcMY < Ymin) {
+              Ymin = arcMY;
+            }
+            if (arcMY > Ymax) {
+              Ymax = arcMY;
+            }
+          }
+        } else {
+          if (arc.h == 1) {
+            const arcMY = arc.sy - arc.r;
+            if (arcMY < Ymin) {
+              Ymin = arcMY;
+            }
+            if (arcMY > Ymax) {
+              Ymax = arcMY;
+            }
+          } else {
+            const arcMY = arc.sy + arc.r;
+            if (arcMY < Ymin) {
+              Ymin = arcMY;
+            }
+            if (arcMY > Ymax) {
+              Ymax = arcMY;
+            }
+          }
+        }
+      }
+    }
+    for (let i = 0; i < symbol.curves.length; i++) {
+      const curve = symbol.curves[i];
+      if (curve.sx < Xmin) {
+        Xmin = curve.sx;
+      }
+      if (curve.ex < Xmin) {
+        Xmin = curve.ex;
+      }
+      if (curve.sy < Ymin) {
+        Ymin = curve.sy;
+      }
+      if (curve.ey < Ymin) {
+        Ymin = curve.ey;
+      }
+      if (curve.sx > Xmax) {
+        Xmax = curve.sx;
+      }
+      if (curve.ex > Xmax) {
+        Xmax = curve.ex;
+      }
+      if (curve.sy > Ymax) {
+        Ymax = curve.sy;
+      }
+      if (curve.ey > Ymax) {
+        Ymax = curve.ey;
+      }
+      // Curva vertical
+      if (curve.sx == curve.ex) {
+        const curveMX = (curve.sx + curve.mx) / 2;
+        if (curveMX < Xmin) {
+          Xmin = curveMX;
+        }
+        if (curveMX > Xmax) {
+          Xmax = curveMX;
+        }
+      }
+      // Curva horizontal
+      if (curve.sy == curve.ey) {
+        const curveMY = (curve.sy + curve.my) / 2;
+        if (curveMY < Ymin) {
+          Ymin = curveMY;
+        }
+        if (curveMY > Ymax) {
+          Ymax = curveMY;
+        }
+      }
+      //Curva reloj de arena vale con los dos puntos
+    }
+    Xmin = Math.floor(Xmin / squareSize) * squareSize;
+    Ymin = Math.floor(Ymin / squareSize) * squareSize;
+    Xmax = Math.ceil(Xmax / squareSize) * squareSize;
+    Ymax = Math.ceil(Ymax / squareSize) * squareSize;
+    return { Xmin, Ymin, Xmax, Ymax };
+  }
+
+  function normalizeSymbol() {
+    const symbol = filterSelected();
+    const boundaries = getBoundaries(symbol);
+    if (boundaries.Xmin >= 0 && boundaries.Xmin <= numHorizontal * squareSize) {
+      if (boundaries.Xmax >= 0 && boundaries.Xmax <= numHorizontal * squareSize) {
+        if (boundaries.Ymin >= 0 && boundaries.Ymin <= numVertical * squareSize) {
+          if (boundaries.Ymax >= 0 && boundaries.Ymax <= numVertical * squareSize) {
+            console.log("Is ok");
+            for (let i = 0; i < symbol.lines.length; i++) {
+              const line = symbol.lines[i];
+              line.x1 = line.x1 - boundaries.Xmin;
+              line.x2 = line.x2 - boundaries.Xmin;
+            }
+            for (let i = 0; i < symbol.circles.length; i++) {
+              const circle = symbol.circles[i];
+              circle.cx = circle.cx - boundaries.Xmin;
+            }
+            for (let i = 0; i < symbol.rectangles.length; i++) {
+              const rectangle = symbol.rectangles[i];
+              rectangle.x = rectangle.x - boundaries.Xmin;
+            }
+            for (let i = 0; i < symbol.arcs.length; i++) {
+              const arc = symbol.arcs[i];
+              arc.sx = arc.sx - boundaries.Xmin;
+              arc.ex = arc.ex - boundaries.Xmin;
+            }
+            for (let i = 0; i < symbol.curves.length; i++) {
+              const curve = symbol.curves[i];
+              curve.sx = curve.sx - boundaries.Xmin;
+              curve.ex = curve.ex - boundaries.Xmin;
+              curve.mx = curve.mx - boundaries.Xmin;
+            }
+            symbol.width = (boundaries.Xmax - boundaries.Xmin) / squareSize;
+            setNormalized(symbol);
+            return symbol;
+          }
+        }
+      }
+    }
+    setNormalized({ width: numHorizontal });
+    return {};
+  }
+
+  function createSymbol() {
+    console.log("createSymbol");
+    const normalized = normalizeSymbol();
+    console.log(normalized);
+    setModalAbierto(true);
+  }
 
   function getScaledEventPoint(e) {
     const svg = e.target.ownerSVGElement || e.target;
@@ -98,6 +447,53 @@ export default function Generador() {
     }
   }
 
+  function move(who, deltaX, deltaY) {
+    const elements = {
+      line: { selectedIndices: selectedLineIndices, items: lines, setItems: setLines },
+      circle: { selectedIndices: selectedCircleIndices, items: circles, setItems: setCircles },
+      rectangle: { selectedIndices: selectedRectangleIndices, items: rectangles, setItems: setRectangles },
+      curve: { selectedIndices: selectedCurveIndices, items: curves, setItems: setCurves },
+      arc: { selectedIndices: selectedArcIndices, items: arcs, setItems: setArcs },
+    };
+    if (elements[who].selectedIndices.length > 0) {
+      const currentSelecteds = [...elements[who].items];
+      for (let i = 0; i < elements[who].selectedIndices.length; i++) {
+        const index = elements[who].selectedIndices[i];
+        if (who == "line") {
+          currentSelecteds[index].x1 += deltaX;
+          currentSelecteds[index].x2 += deltaX;
+          currentSelecteds[index].y1 += deltaY;
+          currentSelecteds[index].y2 += deltaY;
+        } else if (who == "circle") {
+          currentSelecteds[index].cx += deltaX;
+          currentSelecteds[index].cy += deltaY;
+        } else if (who == "rectangle") {
+          currentSelecteds[index].x += deltaX;
+          currentSelecteds[index].y += deltaY;
+        } else if (who == "curve") {
+          currentSelecteds[index].sx += deltaX;
+          currentSelecteds[index].sy += deltaY;
+          currentSelecteds[index].mx += deltaX;
+          currentSelecteds[index].my += deltaY;
+          currentSelecteds[index].ex += deltaX;
+          currentSelecteds[index].ey += deltaY;
+        } else if (who == "arc") {
+          currentSelecteds[index].sx += deltaX;
+          currentSelecteds[index].sy += deltaY;
+          currentSelecteds[index].ex += deltaX;
+          currentSelecteds[index].ey += deltaY;
+        }
+      }
+      elements[who].setItems(currentSelecteds);
+    }
+  }
+  function moveItems(deltaX, deltaY) {
+    move("line", deltaX, deltaY);
+    move("circle", deltaX, deltaY);
+    move("rectangle", deltaX, deltaY);
+    move("curve", deltaX, deltaY);
+    move("arc", deltaX, deltaY);
+  }
   function handleMouseMove(e) {
     e.preventDefault();
     if (isDrawing) {
@@ -109,60 +505,7 @@ export default function Generador() {
       const deltaX = endCoords.x - startCoords.x;
       const deltaY = endCoords.y - startCoords.y;
       if (deltaX != 0 || deltaY != 0) {
-        if (selectedLineIndices.length > 0) {
-          const currentLines = [...lines];
-          for (let i = 0; i < selectedLineIndices.length; i++) {
-            const index = selectedLineIndices[i];
-
-            currentLines[index].x1 += deltaX;
-            currentLines[index].x2 += deltaX;
-            currentLines[index].y1 += deltaY;
-            currentLines[index].y2 += deltaY;
-          }
-          setLines(currentLines);
-        }
-        if (selectedCircleIndices.length > 0) {
-          const currentCircles = [...circles];
-          for (let i = 0; i < selectedCircleIndices.length; i++) {
-            const index = selectedCircleIndices[i];
-            currentCircles[index].cx += deltaX;
-            currentCircles[index].cy += deltaY;
-          }
-          setCircles(currentCircles);
-        }
-        if (selectedRectangleIndices.length > 0) {
-          const currentRectangles = [...rectangles];
-          for (let i = 0; i < selectedRectangleIndices.length; i++) {
-            const index = selectedRectangleIndices[i];
-            currentRectangles[index].x += deltaX;
-            currentRectangles[index].y += deltaY;
-          }
-          setRectangles(currentRectangles);
-        }
-        if (selectedCurveIndices.length > 0) {
-          const currentCurves = [...curves];
-          for (let i = 0; i < selectedCurveIndices.length; i++) {
-            const index = selectedCurveIndices[i];
-            currentCurves[index].sx += deltaX;
-            currentCurves[index].sy += deltaY;
-            currentCurves[index].mx += deltaX;
-            currentCurves[index].my += deltaY;
-            currentCurves[index].ex += deltaX;
-            currentCurves[index].ey += deltaY;
-          }
-          setCurves(currentCurves);
-        }
-        if (selectedArcIndices.length > 0) {
-          const currentArcs = [...arcs];
-          for (let i = 0; i < selectedArcIndices.length; i++) {
-            const index = selectedArcIndices[i];
-            currentArcs[index].sx += deltaX;
-            currentArcs[index].sy += deltaY;
-            currentArcs[index].ex += deltaX;
-            currentArcs[index].ey += deltaY;
-          }
-          setArcs(currentArcs);
-        }
+        moveItems(deltaX, deltaY);
         setIsMoved(true);
         setStartCoords({ x: endCoords.x, y: endCoords.y });
       }
@@ -477,7 +820,7 @@ export default function Generador() {
           x: startCoords.x,
           y: endCoords.y,
         };
-        // Horario en segundo y cuarto cuadrante, si no antihorario
+        // Horario en primer y tercer cuadrante, si no antihorario
         const horario = (endCoords.x - startCoords.x) * (endCoords.y - startCoords.y) > 0 ? 1 : 0;
         if (startCoords.y !== endCoords.y) {
           setArcs((prevArcs) => [
@@ -557,9 +900,9 @@ export default function Generador() {
 
   return (
     <div className="flex h-screen bg-gray-100">
-      <div className="w-1/3 bg-white shadow-lg flex flex-col p-4">
+      <div className="w-1/3 bg-white shadow-lg flex flex-col p-2">
         {/* Contenedor para las herramientas, organizadas en dos columnas */}
-        <div className="flex flex-wrap gap-4">
+        <div className="flex flex-wrap gap-2">
           {/* Boton para la linea */}
           <button
             onClick={() => handleToolSelect(tools.indexOf("line"))}
@@ -954,11 +1297,11 @@ export default function Generador() {
         </div>
       </div>
 
-      <div className="flex-1 bg-gray-50 p-6 flex flex-col items-center justify-start">
+      <div className="flex-1 bg-gray-50 p-1 flex flex-col items-center justify-start gap-2 border">
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          className="w-full h-full max-w-5xl max-h-screen border"
-          viewBox={`0 0 ${viewBoxWidth} ${viewBoxHeight}`}
+          className="w-full max-w-5xl max-h-screen"
+          viewBox={`-2 -2 ${viewBoxWidth + 4} ${viewBoxHeight + 4}`}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
@@ -1044,111 +1387,129 @@ export default function Generador() {
               onClick={() => handleItemClick(index, selectedArcIndices, setSelectedArcIndices)}
             />
           ))}
-          {isDrawing && !rightClicking && tools[selectedTool] === "line" && (
-            <line
-              x1={startCoords.x}
-              y1={startCoords.y}
-              x2={endCoords.x}
-              y2={endCoords.y}
-              stroke="black"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          )}
-          {isDrawing && !rightClicking && tools[selectedTool] === "circle" && (
-            <circle
-              cx={(startCoords.x + endCoords.x) / 2}
-              cy={(startCoords.y + endCoords.y) / 2}
-              r={Math.min(Math.abs(endCoords.x - startCoords.x) / 2, Math.abs(endCoords.y - startCoords.y) / 2)}
-              stroke="black"
-              fill={
-                Math.min(Math.abs(endCoords.x - startCoords.x) / 2, Math.abs(endCoords.y - startCoords.y) / 2) == 1
-                  ? "black"
-                  : "none"
-              }
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          )}
-          {isDrawing && !rightClicking && tools[selectedTool] === "rueda" && (
-            <circle
-              cx={(startCoords.x + endCoords.x) / 2}
-              cy={(startCoords.y + endCoords.y) / 2}
-              r={Math.min(Math.abs(endCoords.x - startCoords.x) / 2, Math.abs(endCoords.y - startCoords.y) / 2)}
-              stroke="black"
-              fill={
-                Math.min(Math.abs(endCoords.x - startCoords.x) / 2, Math.abs(endCoords.y - startCoords.y) / 2) == 1
-                  ? "black"
-                  : "none"
-              }
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          )}
-          {isDrawing && !rightClicking && tools[selectedTool] === "rueda" && (
-            <line
-              x1={
-                (startCoords.x + endCoords.x) / 2 -
-                Math.min(Math.abs(endCoords.x - startCoords.x) / 2, Math.abs(endCoords.y - startCoords.y) / 2) *
-                  Math.SQRT1_2
-              }
-              y1={
-                (startCoords.y + endCoords.y) / 2 -
-                Math.min(Math.abs(endCoords.x - startCoords.x) / 2, Math.abs(endCoords.y - startCoords.y) / 2) *
-                  Math.SQRT1_2
-              }
-              x2={
-                (startCoords.x + endCoords.x) / 2 +
-                Math.min(Math.abs(endCoords.x - startCoords.x) / 2, Math.abs(endCoords.y - startCoords.y) / 2) *
-                  Math.SQRT1_2
-              }
-              y2={
-                (startCoords.y + endCoords.y) / 2 +
-                Math.min(Math.abs(endCoords.x - startCoords.x) / 2, Math.abs(endCoords.y - startCoords.y) / 2) *
-                  Math.SQRT1_2
-              }
-              stroke="black"
-              strokeWidth="2"
-            />
-          )}
-          {isDrawing && !rightClicking && tools[selectedTool] === "rueda" && (
-            <line
-              x1={
-                (startCoords.x + endCoords.x) / 2 +
-                Math.min(Math.abs(endCoords.x - startCoords.x) / 2, Math.abs(endCoords.y - startCoords.y) / 2) *
-                  Math.SQRT1_2
-              }
-              y1={
-                (startCoords.y + endCoords.y) / 2 -
-                Math.min(Math.abs(endCoords.x - startCoords.x) / 2, Math.abs(endCoords.y - startCoords.y) / 2) *
-                  Math.SQRT1_2
-              }
-              x2={
-                (startCoords.x + endCoords.x) / 2 -
-                Math.min(Math.abs(endCoords.x - startCoords.x) / 2, Math.abs(endCoords.y - startCoords.y) / 2) *
-                  Math.SQRT1_2
-              }
-              y2={
-                (startCoords.y + endCoords.y) / 2 +
-                Math.min(Math.abs(endCoords.x - startCoords.x) / 2, Math.abs(endCoords.y - startCoords.y) / 2) *
-                  Math.SQRT1_2
-              }
-              stroke="black"
-              strokeWidth="2"
-            />
-          )}
-          {isDrawing && !rightClicking && tools[selectedTool] === "rectangle" && (
-            <rect
-              x={Math.min(startCoords.x, endCoords.x)}
-              y={Math.min(startCoords.y, endCoords.y)}
-              width={Math.abs(endCoords.x - startCoords.x)}
-              height={Math.abs(endCoords.y - startCoords.y)}
-              stroke="black"
-              fill="none"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          )}
+          {isDrawing &&
+            !rightClicking &&
+            tools[selectedTool] === "line" &&
+            (startCoords.x != endCoords.x || startCoords.y != endCoords.y) && (
+              <line
+                x1={startCoords.x}
+                y1={startCoords.y}
+                x2={endCoords.x}
+                y2={endCoords.y}
+                stroke="black"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            )}
+          {isDrawing &&
+            !rightClicking &&
+            tools[selectedTool] === "circle" &&
+            (startCoords.x != endCoords.x || startCoords.y != endCoords.y) && (
+              <circle
+                cx={(startCoords.x + endCoords.x) / 2}
+                cy={(startCoords.y + endCoords.y) / 2}
+                r={Math.min(Math.abs(endCoords.x - startCoords.x) / 2, Math.abs(endCoords.y - startCoords.y) / 2)}
+                stroke="black"
+                fill={
+                  Math.min(Math.abs(endCoords.x - startCoords.x) / 2, Math.abs(endCoords.y - startCoords.y) / 2) == 1
+                    ? "black"
+                    : "none"
+                }
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            )}
+          {isDrawing &&
+            !rightClicking &&
+            tools[selectedTool] === "rueda" &&
+            (startCoords.x != endCoords.x || startCoords.y != endCoords.y) && (
+              <circle
+                cx={(startCoords.x + endCoords.x) / 2}
+                cy={(startCoords.y + endCoords.y) / 2}
+                r={Math.min(Math.abs(endCoords.x - startCoords.x) / 2, Math.abs(endCoords.y - startCoords.y) / 2)}
+                stroke="black"
+                fill={
+                  Math.min(Math.abs(endCoords.x - startCoords.x) / 2, Math.abs(endCoords.y - startCoords.y) / 2) == 1
+                    ? "black"
+                    : "none"
+                }
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            )}
+          {isDrawing &&
+            !rightClicking &&
+            tools[selectedTool] === "rueda" &&
+            (startCoords.x != endCoords.x || startCoords.y != endCoords.y) && (
+              <line
+                x1={
+                  (startCoords.x + endCoords.x) / 2 -
+                  Math.min(Math.abs(endCoords.x - startCoords.x) / 2, Math.abs(endCoords.y - startCoords.y) / 2) *
+                    Math.SQRT1_2
+                }
+                y1={
+                  (startCoords.y + endCoords.y) / 2 -
+                  Math.min(Math.abs(endCoords.x - startCoords.x) / 2, Math.abs(endCoords.y - startCoords.y) / 2) *
+                    Math.SQRT1_2
+                }
+                x2={
+                  (startCoords.x + endCoords.x) / 2 +
+                  Math.min(Math.abs(endCoords.x - startCoords.x) / 2, Math.abs(endCoords.y - startCoords.y) / 2) *
+                    Math.SQRT1_2
+                }
+                y2={
+                  (startCoords.y + endCoords.y) / 2 +
+                  Math.min(Math.abs(endCoords.x - startCoords.x) / 2, Math.abs(endCoords.y - startCoords.y) / 2) *
+                    Math.SQRT1_2
+                }
+                stroke="black"
+                strokeWidth="2"
+              />
+            )}
+          {isDrawing &&
+            !rightClicking &&
+            tools[selectedTool] === "rueda" &&
+            (startCoords.x != endCoords.x || startCoords.y != endCoords.y) && (
+              <line
+                x1={
+                  (startCoords.x + endCoords.x) / 2 +
+                  Math.min(Math.abs(endCoords.x - startCoords.x) / 2, Math.abs(endCoords.y - startCoords.y) / 2) *
+                    Math.SQRT1_2
+                }
+                y1={
+                  (startCoords.y + endCoords.y) / 2 -
+                  Math.min(Math.abs(endCoords.x - startCoords.x) / 2, Math.abs(endCoords.y - startCoords.y) / 2) *
+                    Math.SQRT1_2
+                }
+                x2={
+                  (startCoords.x + endCoords.x) / 2 -
+                  Math.min(Math.abs(endCoords.x - startCoords.x) / 2, Math.abs(endCoords.y - startCoords.y) / 2) *
+                    Math.SQRT1_2
+                }
+                y2={
+                  (startCoords.y + endCoords.y) / 2 +
+                  Math.min(Math.abs(endCoords.x - startCoords.x) / 2, Math.abs(endCoords.y - startCoords.y) / 2) *
+                    Math.SQRT1_2
+                }
+                stroke="black"
+                strokeWidth="2"
+              />
+            )}
+          {isDrawing &&
+            !rightClicking &&
+            tools[selectedTool] === "rectangle" &&
+            (startCoords.x != endCoords.x || startCoords.y != endCoords.y) && (
+              <rect
+                x={Math.min(startCoords.x, endCoords.x)}
+                y={Math.min(startCoords.y, endCoords.y)}
+                width={Math.abs(endCoords.x - startCoords.x)}
+                height={Math.abs(endCoords.y - startCoords.y)}
+                stroke="black"
+                fill="none"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            )}
           {(isDrawing && tools[selectedTool] === "select") || rightClicking ? (
             <rect
               x={Math.min(startCoords.x, endCoords.x)}
@@ -1158,39 +1519,48 @@ export default function Generador() {
               fill="rgba(0, 0, 255, 0.1)"
             />
           ) : null}
-          {isDrawing && !rightClicking && tools[selectedTool] === "curveH" && (
-            <path
-              d={`M${startCoords.x},${startCoords.y} Q${startCoords.x + 1 * (endCoords.x - startCoords.x)},${
-                (startCoords.y + endCoords.y) / 2
-              } ${startCoords.x},${endCoords.y}`}
-              stroke="black"
-              fill="none"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          )}
-          {isDrawing && !rightClicking && tools[selectedTool] === "curveV" && (
-            <path
-              d={`M${startCoords.x},${startCoords.y} Q${(startCoords.x + endCoords.x) / 2},${
-                startCoords.y + 1 * (endCoords.y - startCoords.y)
-              }, ${endCoords.x},${startCoords.y}`}
-              stroke="black"
-              fill="none"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          )}
-          {isDrawing && !rightClicking && tools[selectedTool] === "curveR" && (
-            <path
-              d={`M${startCoords.x},${startCoords.y} Q${endCoords.x},${(startCoords.y + endCoords.y) / 2}, ${
-                endCoords.x
-              },${endCoords.y}`}
-              stroke="black"
-              fill="none"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          )}
+          {isDrawing &&
+            !rightClicking &&
+            tools[selectedTool] === "curveH" &&
+            (startCoords.x != endCoords.x || startCoords.y != endCoords.y) && (
+              <path
+                d={`M${startCoords.x},${startCoords.y} Q${startCoords.x + 1 * (endCoords.x - startCoords.x)},${
+                  (startCoords.y + endCoords.y) / 2
+                } ${startCoords.x},${endCoords.y}`}
+                stroke="black"
+                fill="none"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            )}
+          {isDrawing &&
+            !rightClicking &&
+            tools[selectedTool] === "curveV" &&
+            (startCoords.x != endCoords.x || startCoords.y != endCoords.y) && (
+              <path
+                d={`M${startCoords.x},${startCoords.y} Q${(startCoords.x + endCoords.x) / 2},${
+                  startCoords.y + 1 * (endCoords.y - startCoords.y)
+                }, ${endCoords.x},${startCoords.y}`}
+                stroke="black"
+                fill="none"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            )}
+          {isDrawing &&
+            !rightClicking &&
+            tools[selectedTool] === "curveR" &&
+            (startCoords.x != endCoords.x || startCoords.y != endCoords.y) && (
+              <path
+                d={`M${startCoords.x},${startCoords.y} Q${endCoords.x},${(startCoords.y + endCoords.y) / 2}, ${
+                  endCoords.x
+                },${endCoords.y}`}
+                stroke="black"
+                fill="none"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            )}
           {isDrawing && !rightClicking && tools[selectedTool] === "point" && (
             <circle
               cx={startCoords.x}
@@ -1227,58 +1597,70 @@ export default function Generador() {
                 strokeLinecap="round"
               />
             )}
-          {isDrawing && !rightClicking && tools[selectedTool] === "pizza" && (
-            <path
-              d={`M${endCoords.x},${startCoords.y} A${Math.abs(endCoords.x - startCoords.x)},${Math.abs(
-                endCoords.x - startCoords.x
-              )}, 0 0 ${(endCoords.x - startCoords.x) * (endCoords.y - startCoords.y) > 0 ? 1 : 0} ${startCoords.x},${
-                endCoords.y < startCoords.y
-                  ? startCoords.y - Math.abs(endCoords.x - startCoords.x)
-                  : startCoords.y + Math.abs(endCoords.x - startCoords.x)
-              }`}
-              stroke="black"
-              fill="none"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          )}
-          {isDrawing && !rightClicking && tools[selectedTool] === "semiH" && (
-            <path
-              d={`M${startCoords.x},${startCoords.y} A${Math.abs(endCoords.x - startCoords.x) / 2},${
-                Math.abs(endCoords.x - startCoords.x) / 2
-              }, 0 0 ${(endCoords.x - startCoords.x) * (endCoords.y - startCoords.y) > 0 ? 0 : 1} ${endCoords.x},${
-                startCoords.y
-              }`}
-              stroke="black"
-              fill="none"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          )}
-          {isDrawing && !rightClicking && tools[selectedTool] === "semiV" && (
-            <path
-              d={`M${startCoords.x},${startCoords.y} A${Math.abs(endCoords.y - startCoords.y) / 2},${
-                Math.abs(endCoords.y - startCoords.y) / 2
-              }, 0 0 ${(endCoords.x - startCoords.x) * (endCoords.y - startCoords.y) > 0 ? 1 : 0} ${startCoords.x},${
-                endCoords.y
-              }`}
-              stroke="black"
-              fill="none"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          )}
-          {isDrawing && !rightClicking && tools[selectedTool] === "interrogante" && (
-            <circle
-              cx={startCoords.x}
-              cy={startCoords.y}
-              r={startCoords.x != endCoords.x || startCoords.y != endCoords.y ? 1 : 0}
-              stroke="black"
-              fill="black"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          )}
+          {isDrawing &&
+            !rightClicking &&
+            tools[selectedTool] === "pizza" &&
+            (startCoords.x != endCoords.x || startCoords.y != endCoords.y) && (
+              <path
+                d={`M${endCoords.x},${startCoords.y} A${Math.abs(endCoords.x - startCoords.x)},${Math.abs(
+                  endCoords.x - startCoords.x
+                )}, 0 0 ${(endCoords.x - startCoords.x) * (endCoords.y - startCoords.y) > 0 ? 1 : 0} ${startCoords.x},${
+                  endCoords.y < startCoords.y
+                    ? startCoords.y - Math.abs(endCoords.x - startCoords.x)
+                    : startCoords.y + Math.abs(endCoords.x - startCoords.x)
+                }`}
+                stroke="black"
+                fill="none"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            )}
+          {isDrawing &&
+            !rightClicking &&
+            tools[selectedTool] === "semiH" &&
+            (startCoords.x != endCoords.x || startCoords.y != endCoords.y) && (
+              <path
+                d={`M${startCoords.x},${startCoords.y} A${Math.abs(endCoords.x - startCoords.x) / 2},${
+                  Math.abs(endCoords.x - startCoords.x) / 2
+                }, 0 0 ${(endCoords.x - startCoords.x) * (endCoords.y - startCoords.y) > 0 ? 0 : 1} ${endCoords.x},${
+                  startCoords.y
+                }`}
+                stroke="black"
+                fill="none"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            )}
+          {isDrawing &&
+            !rightClicking &&
+            tools[selectedTool] === "semiV" &&
+            (startCoords.x != endCoords.x || startCoords.y != endCoords.y) && (
+              <path
+                d={`M${startCoords.x},${startCoords.y} A${Math.abs(endCoords.y - startCoords.y) / 2},${
+                  Math.abs(endCoords.y - startCoords.y) / 2
+                }, 0 0 ${(endCoords.x - startCoords.x) * (endCoords.y - startCoords.y) > 0 ? 1 : 0} ${startCoords.x},${
+                  endCoords.y
+                }`}
+                stroke="black"
+                fill="none"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            )}
+          {isDrawing &&
+            !rightClicking &&
+            tools[selectedTool] === "interrogante" &&
+            (startCoords.x != endCoords.x || startCoords.y != endCoords.y) && (
+              <circle
+                cx={startCoords.x}
+                cy={startCoords.y}
+                r={startCoords.x != endCoords.x || startCoords.y != endCoords.y ? 1 : 0}
+                stroke="black"
+                fill="black"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            )}
           {isDrawing &&
             !rightClicking &&
             tools[selectedTool] === "interrogante" &&
@@ -1309,6 +1691,60 @@ export default function Generador() {
               />
             )}
         </svg>
+        <div className="w-full flex flex-col p-1 gap-1 border items-center">
+          {/* Div para los inputs */}
+          <div className="flex w-full gap-1 rounded items-center justify-between">
+            <input
+              id="Es"
+              type="text"
+              value={es}
+              placeholder="Castellano"
+              onChange={handleEsChange}
+              className="flex-1 p-1 border border-gray-400 rounded focus:outline-none focus:ring-2 focus:ring-slate-500"
+            />
+            <input
+              id="Eus"
+              type="text"
+              placeholder="Euskara"
+              value={eus}
+              onChange={handleEusChange}
+              className="flex-1 p-1 border border-gray-400 rounded focus:outline-none focus:ring-2 focus:ring-slate-500"
+            />
+          </div>
+
+          {/* Botón de guardar */}
+          <button
+            onClick={createSymbol}
+            className="w-full bg-slate-500 text-white p-1 rounded hover:bg-slate-600 transition"
+          >
+            Guardar
+          </button>
+        </div>
+        {modalAbierto && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+            <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full">
+              <h2 className="text-xl font-bold mb-4">Confirmar guardado</h2>
+              <p className="mb-1">Español: {es}</p>
+              <p className="mb-1">Euskara: {eus}</p>
+              <p className="mb-1">Símbolo:</p>
+              <Symbol className="h-24" symbol={normalized}></Symbol>
+              <div className="flex justify-between space-x-4">
+                <button
+                  onClick={() => setModalAbierto(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleConfirmar}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  Confirmar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
