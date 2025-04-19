@@ -23,65 +23,66 @@ export default function Diccionario() {
   const [categoryToDelete, setCategoryToDelete] = useState("");
   const [currentPage, setCurrentPage] = useState(0); // Estado para la página actual
 
-  // Función para ir a la página anterior
+  const router = useRouter();
+
+  // Funciones para cambiar de página
   const prevPage = () => {
     setCurrentPage((prev) => Math.max(prev - 1, 0));
   };
 
-  // Función para ir a la página siguiente
   const nextPage = () => {
     setCurrentPage((prev) => Math.min(prev + 1, Math.ceil(filteredSymbols.length / 6) - 1));
   };
 
-  const router = useRouter();
+  // Dentro del componente Diccionario, modifica el useEffect principal:
 
+  // Modifica el useEffect principal
   useEffect(() => {
-    // Simulación de datos obtenidos de una API o fuente externa
-    const fetchSymbolsAndCategories = async () => {
+    // Primero, tratamos de obtener los datos cacheados
+    const cachedSymbols = localStorage.getItem("cachedOfficialSymbols");
+    if (cachedSymbols) {
+      const parsedSymbols = JSON.parse(cachedSymbols);
+      setSymbols(parsedSymbols);
+      setFilteredSymbols(parsedSymbols);
+    }
+
+    // Luego, realizamos el fetch a la API para obtener datos actualizados
+    const fetchData = async () => {
       try {
-        const respuesta = await fetch("/api/symbols", {
-          method: "GET", // Cambia a "GET"
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
-        const data = await respuesta.json();
-        console.log("Iepa");
-        console.log(data);
-        setSymbols(data);
-        setFilteredSymbols(data);
+        const response = await fetch("/api/symbols");
+        const newData = await response.json();
+
+        // Actualizamos el cache y los estados con los nuevos datos
+        localStorage.setItem("cachedOfficialSymbols", JSON.stringify(newData));
+        setSymbols(newData);
+        setFilteredSymbols(newData);
       } catch (error) {
-        const data = [];
-        setSymbols(data);
-        setFilteredSymbols(data);
-      }
-      try {
-        const respuesta = await fetch("/api/categories", {
-          method: "GET", // Cambia a "GET"
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
-        const data = await respuesta.json();
-        console.log("Iepa Categorias");
-        console.log(data);
-        setCategories(data);
-      } catch (error) {
-        const data = [];
-        setCategories(data);
+        console.error("Error fetching symbols:", error);
+        // Si falla el fetch, ya tenemos los datos cacheados (si existían)
       }
     };
 
-    fetchSymbolsAndCategories();
+    fetchData();
+
+    // Cargar categorías de forma paralela
+    const fetchCategories = async () => {
+      try {
+        const response = await fetch("/api/categories");
+        setCategories(await response.json());
+      } catch (error) {
+        console.error("Error fetching categories:", error);
+      }
+    };
+    fetchCategories();
   }, [refresh]);
 
   useEffect(() => {
     // Filtrar palabras basado en los inputs
     console.log(symbols[1]);
     const filtered = symbols.filter((symbol) => {
-      const matchesWord =
-        quitarTildesEspaciosMinuscula(symbol.nameEs).includes(quitarTildesEspaciosMinuscula(symbolFilter)) ||
-        quitarTildesEspaciosMinuscula(symbol.nameEu).includes(quitarTildesEspaciosMinuscula(symbolFilter));
+      const matchesWord = quitarTildesEspaciosMinuscula(symbol.nameEs + " / " + symbol.nameEu).includes(
+        quitarTildesEspaciosMinuscula(symbolFilter)
+      );
       const matchesCategory1 =
         category1Filter === "" ||
         symbol.categories.some((cat) =>
@@ -112,6 +113,45 @@ export default function Diccionario() {
     setSelectedSymbol(null);
     setEditedSymbol(null);
     setNewCategory("");
+  };
+
+  // Función para redirigir a /generador y guardar en localStorage el JSON del símbolo
+  const handleRedirectToGenerador = () => {
+    if (selectedSymbol) {
+      if (typeof window !== "undefined") {
+        const existingDataString = localStorage.getItem("targetSymbol");
+        let existingData = {
+          circles: [],
+          lines: [],
+          rectangles: [],
+          arcs: [],
+          curves: [],
+        };
+
+        if (existingDataString) {
+          try {
+            existingData = JSON.parse(existingDataString);
+          } catch (e) {
+            console.error("Error parsing existing targetSymbol:", e);
+          }
+        }
+
+        // Fusionar los datos nuevos con los existentes
+        const newData = selectedSymbol.jsonData;
+
+        const mergedData = {
+          circles: [...(existingData.circles || []), ...(newData.circles || [])],
+          lines: [...(existingData.lines || []), ...(newData.lines || [])],
+          rectangles: [...(existingData.rectangles || []), ...(newData.rectangles || [])],
+          arcs: [...(existingData.arcs || []), ...(newData.arcs || [])],
+          curves: [...(existingData.curves || []), ...(newData.curves || [])],
+        };
+
+        localStorage.setItem("targetSymbol", JSON.stringify(mergedData));
+      }
+
+      router.push("/generador");
+    }
   };
 
   const handleEdit = async () => {
@@ -177,11 +217,12 @@ export default function Diccionario() {
     }
     return categoryId;
   };
+
   const handleAddCategory = async () => {
     console.log(editedSymbol);
     const catId = getCategoryId(newCategory);
     console.log(catId);
-    //Añadir categoria al simbolo
+    // Añadir categoría al símbolo
     try {
       const respuesta = await fetch("/api/categorysymbol", {
         method: "POST",
@@ -262,7 +303,7 @@ export default function Diccionario() {
 
   const handleAddNewCategory = async () => {
     if (newCategoryName.es && newCategoryName.eus) {
-      //Añadir categoria
+      // Añadir categoría
       try {
         const respuesta = await fetch("/api/categories", {
           method: "POST",
@@ -424,7 +465,7 @@ export default function Diccionario() {
           <button
             className="px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400 disabled:opacity-50"
             onClick={prevPage}
-            disabled={currentPage === 0} // Desactivar si estamos en la primera página
+            disabled={currentPage === 0}
           >
             Anterior
           </button>
@@ -434,7 +475,7 @@ export default function Diccionario() {
           <button
             className="px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400 disabled:opacity-50"
             onClick={nextPage}
-            disabled={currentPage === Math.ceil(filteredSymbols.length / 6) - 1} // Desactivar si estamos en la última página
+            disabled={currentPage === Math.ceil(filteredSymbols.length / 6) - 1}
           >
             Siguiente
           </button>
@@ -444,109 +485,125 @@ export default function Diccionario() {
       {/* Modal de edición de símbolo */}
       {isModalOpen && selectedSymbol && editedSymbol && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white p-4 rounded-lg shadow-xl w-full max-w-md max-h-[95vh] overflow-y-auto">
-            <div className="space-y-1">
-              <h3 className="text-xl font-bold mb-4">Editar Símbolo</h3>
-              <div className="mb-4">
-                <label htmlFor="editNameEs" className="block text-sm font-medium text-gray-700 mb-1">
-                  Nombre (Español):
-                </label>
-                <input
-                  type="text"
-                  id="editNameEs"
-                  value={editedSymbol.nameEs}
-                  onChange={(e) => setEditedSymbol({ ...editedSymbol, nameEs: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-slate-500 focus:border-slate-500"
-                  autoComplete="off"
-                />
-              </div>
-              <div className="mb-4">
-                <label htmlFor="editnameEu" className="block text-sm font-medium text-gray-700 mb-1">
-                  Nombre (Euskera):
-                </label>
-                <input
-                  type="text"
-                  id="editnameEu"
-                  value={editedSymbol.nameEu}
-                  onChange={(e) => setEditedSymbol({ ...editedSymbol, nameEu: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-slate-500 focus:border-slate-500"
-                  autoComplete="off"
-                />
-              </div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Categorías:</label>
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {editedSymbol.categories.map((category, index) => (
-                    <span
-                      key={index}
-                      className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-sm flex items-center"
-                    >
-                      {`${category.Category.nameEs} / ${category.Category.nameEu}`}
-                      <button
-                        onClick={() => handleRemoveCategory(category.id)}
-                        className="ml-1 text-blue-600 hover:text-blue-800"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
+          <div className="bg-white p-4 rounded-lg shadow-xl w-full max-w-3xl h-[90vh] flex flex-col">
+            {/* Contenedor Flex que divide en dos columnas */}
+            <div className="flex flex-1 min-h-0 overflow-hidden">
+              {/* Panel Izquierdo: muestra el símbolo y permite redirigir a /generador al hacer click */}
+              <div
+                className="w-1/2 p-4 flex flex-col items-center border-r border-gray-300 cursor-pointer overflow-y-auto min-h-0 h-full"
+                onClick={handleRedirectToGenerador}
+              >
+                <div className="w-full h-full flex-1 min-h-0 overflow-hidden">
+                  <Symbol className="w-full h-full object-contain" symbol={selectedSymbol.jsonData} />
                 </div>
-                <div className="flex flex-col">
-                  <div className="flex">
+                <p className="text-xs mt-2">{`${selectedSymbol.nameEs} / ${selectedSymbol.nameEu}`}</p>
+              </div>
+              {/* Panel Derecho: formulario de edición */}
+              <div className="w-1/2 p-4 overflow-y-auto">
+                <div className="space-y-1">
+                  <h3 className="text-xl font-bold mb-4">Editar Símbolo</h3>
+                  <div className="mb-4">
+                    <label htmlFor="editNameEs" className="block text-sm font-medium text-gray-700 mb-1">
+                      Nombre (Español):
+                    </label>
                     <input
                       type="text"
-                      list="newCategorySuggestions"
-                      value={newCategory}
-                      onChange={(e) => setNewCategory(e.target.value)}
-                      placeholder="Selecciona o escribe una categoría"
-                      className="flex-grow p-2 border border-gray-300 rounded-l-md focus:ring-slate-500 focus:border-slate-500"
+                      id="editNameEs"
+                      value={editedSymbol.nameEs}
+                      onChange={(e) => setEditedSymbol({ ...editedSymbol, nameEs: e.target.value })}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-slate-500 focus:border-slate-500"
                       autoComplete="off"
                     />
+                  </div>
+                  <div className="mb-4">
+                    <label htmlFor="editnameEu" className="block text-sm font-medium text-gray-700 mb-1">
+                      Nombre (Euskera):
+                    </label>
+                    <input
+                      type="text"
+                      id="editnameEu"
+                      value={editedSymbol.nameEu}
+                      onChange={(e) => setEditedSymbol({ ...editedSymbol, nameEu: e.target.value })}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-slate-500 focus:border-slate-500"
+                      autoComplete="off"
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Categorías:</label>
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {editedSymbol.categories.map((category, index) => (
+                        <span
+                          key={index}
+                          className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-sm flex items-center"
+                        >
+                          {`${category.Category.nameEs} / ${category.Category.nameEu}`}
+                          <button
+                            onClick={() => handleRemoveCategory(category.id)}
+                            className="ml-1 text-blue-600 hover:text-blue-800"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                    <div className="flex flex-col">
+                      <div className="flex">
+                        <input
+                          type="text"
+                          list="newCategorySuggestions"
+                          value={newCategory}
+                          onChange={(e) => setNewCategory(e.target.value)}
+                          placeholder="Selecciona o escribe una categoría"
+                          className="flex-grow p-2 border border-gray-300 rounded-l-md focus:ring-slate-500 focus:border-slate-500"
+                          autoComplete="off"
+                        />
+                        <button
+                          onClick={handleAddCategory}
+                          className="bg-blue-500 text-white px-4 py-2 rounded-r-md hover:bg-blue-600 transition-colors"
+                        >
+                          Añadir
+                        </button>
+                      </div>
+                      <datalist id="newCategorySuggestions">
+                        {categories.map((category, index) => (
+                          <option key={index} value={`${category.nameEs} / ${category.nameEu}`} />
+                        ))}
+                      </datalist>
+                    </div>
                     <button
-                      onClick={handleAddCategory}
-                      className="bg-blue-500 text-white px-4 py-2 rounded-r-md hover:bg-blue-600 transition-colors"
+                      onClick={openNewCategoryModal}
+                      className="mt-2 bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition-colors w-full"
                     >
-                      Añadir
+                      Crear Nueva Categoría
+                    </button>
+                    <button
+                      onClick={openDeleteCategoryModal}
+                      className="mt-2 bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 transition-colors w-full"
+                    >
+                      Eliminar Categoría
                     </button>
                   </div>
-                  <datalist id="newCategorySuggestions">
-                    {categories.map((category, index) => (
-                      <option key={index} value={`${category.nameEs} / ${category.nameEu}`} />
-                    ))}
-                  </datalist>
+                  <div className="flex justify-between">
+                    <button
+                      onClick={handleEdit}
+                      className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors"
+                    >
+                      Guardar
+                    </button>
+                    <button
+                      onClick={handleDelete}
+                      className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition-colors"
+                    >
+                      Borrar
+                    </button>
+                    <button
+                      onClick={closeModal}
+                      className="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400 transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
                 </div>
-                <button
-                  onClick={openNewCategoryModal}
-                  className="mt-2 bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition-colors w-full"
-                >
-                  Crear Nueva Categoría
-                </button>
-                <button
-                  onClick={openDeleteCategoryModal}
-                  className="mt-2 bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 transition-colors w-full"
-                >
-                  Eliminar Categoría
-                </button>
-              </div>
-              <div className="flex justify-between">
-                <button
-                  onClick={handleEdit}
-                  className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors"
-                >
-                  Guardar
-                </button>
-                <button
-                  onClick={handleDelete}
-                  className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition-colors"
-                >
-                  Borrar
-                </button>
-                <button
-                  onClick={closeModal}
-                  className="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400 transition-colors"
-                >
-                  Cancelar
-                </button>
               </div>
             </div>
           </div>

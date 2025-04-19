@@ -14,6 +14,22 @@ import {
 
 import { copyObjectWithArrays } from "@/utils/objects";
 
+// Función que devuelve los estados iniciales cargados de localStorage (si existen)
+function getInitialTargetSymbol(key) {
+  if (typeof window !== "undefined") {
+    const stored = localStorage.getItem("targetSymbol");
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        return parsed[key] || [];
+      } catch (error) {
+        console.error("Error parseando el targetSymbol desde localStorage", error);
+      }
+    }
+  }
+  return [];
+}
+
 export default function Generador() {
   const [normalized, setNormalized] = useState({});
   const [startCoords, setStartCoords] = useState({ x: 0, y: 0 });
@@ -22,11 +38,11 @@ export default function Generador() {
   const [isMoving, setIsMoving] = useState(false);
   const [isMoved, setIsMoved] = useState(false);
   const [rightClicking, setRightClicking] = useState(false);
-  const [lines, setLines] = useState([]);
-  const [circles, setCircles] = useState([]);
-  const [curves, setCurves] = useState([]);
-  const [arcs, setArcs] = useState([]);
-  const [rectangles, setRectangles] = useState([]);
+  const [lines, setLines] = useState(() => getInitialTargetSymbol("lines"));
+  const [circles, setCircles] = useState(() => getInitialTargetSymbol("circles"));
+  const [curves, setCurves] = useState(() => getInitialTargetSymbol("curves"));
+  const [arcs, setArcs] = useState(() => getInitialTargetSymbol("arcs"));
+  const [rectangles, setRectangles] = useState(() => getInitialTargetSymbol("rectangles"));
   const [es, setEs] = useState("");
   const [eus, setEus] = useState("");
   const [modalAbierto, setModalAbierto] = useState(false);
@@ -874,7 +890,13 @@ export default function Generador() {
     e.preventDefault();
     //unselectAll();
   }
-
+  // Cada vez que se modifiquen circles, curves, arcs o rectangles, se guarda el objeto en localStorage
+  useEffect(() => {
+    const targetSymbol = { circles, curves, arcs, rectangles, lines };
+    if (typeof window !== "undefined") {
+      localStorage.setItem("targetSymbol", JSON.stringify(targetSymbol));
+    }
+  }, [circles, curves, arcs, rectangles, lines]);
   // Efecto para escuchar la tecla "Suprimir"
   useEffect(() => {
     window.addEventListener("keydown", handleKeyDown);
