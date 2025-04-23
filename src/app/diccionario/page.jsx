@@ -8,6 +8,8 @@ import { quitarTildesEspaciosMinuscula } from "@/utils/textUtils";
 export default function Diccionario() {
   const [refresh, setRefresh] = useState(0);
   const [symbols, setSymbols] = useState([]);
+  const [diccionarios, setDiccionarios] = useState([{ id: 0, name: "Oficial" }]);
+  const [diccionario, setDiccionario] = useState(0);
   const [categories, setCategories] = useState([]);
   const [filteredSymbols, setFilteredSymbols] = useState([]);
   const [category1Filter, setCategory1Filter] = useState("");
@@ -22,6 +24,10 @@ export default function Diccionario() {
   const [newCategoryName, setNewCategoryName] = useState({ es: "", eus: "" });
   const [categoryToDelete, setCategoryToDelete] = useState("");
   const [currentPage, setCurrentPage] = useState(0); // Estado para la página actual
+  const [isDeleteDictionaryModalOpen, setIsDeleteDictionaryModalOpen] = useState(false);
+  const [isAddDictionaryModalOpen, setIsAddDictionaryModalOpen] = useState(false);
+  const [isUpdateDictionaryModalOpen, setIsUpdateDictionaryModalOpen] = useState(false);
+  const [newDictionaryName, setNewDictionaryName] = useState("");
 
   const router = useRouter();
 
@@ -45,7 +51,6 @@ export default function Diccionario() {
       setSymbols(parsedSymbols);
       setFilteredSymbols(parsedSymbols);
     }
-
     // Luego, realizamos el fetch a la API para obtener datos actualizados
     const fetchData = async () => {
       try {
@@ -55,7 +60,8 @@ export default function Diccionario() {
         // Actualizamos el cache y los estados con los nuevos datos
         localStorage.setItem("cachedOfficialSymbols", JSON.stringify(newData));
         setSymbols(newData);
-        setFilteredSymbols(newData);
+        const filtrados = newData.filter((item) => item.dictionaryId === diccionario);
+        setFilteredSymbols(filtrados);
       } catch (error) {
         console.error("Error fetching symbols:", error);
         // Si falla el fetch, ya tenemos los datos cacheados (si existían)
@@ -74,15 +80,29 @@ export default function Diccionario() {
       }
     };
     fetchCategories();
+    // Cargar diccionarios:
+    // Tratamos de obtenerlo de la cache
+    const fetchDictionaries = async () => {
+      try {
+        const response = await fetch("/api/diccionarios");
+        const dics = await response.json();
+        setDiccionarios(dics);
+      } catch (error) {
+        console.error("Error fetching dictionaries:", error);
+      }
+    };
+    fetchDictionaries();
   }, [refresh]);
 
   useEffect(() => {
     // Filtrar palabras basado en los inputs
-    console.log(symbols[1]);
     const filtered = symbols.filter((symbol) => {
+      const matchesDictionary = symbol.dictionaryId === diccionarios[diccionario].id;
+
       const matchesWord = quitarTildesEspaciosMinuscula(symbol.nameEs + " / " + symbol.nameEu).includes(
         quitarTildesEspaciosMinuscula(symbolFilter)
       );
+
       const matchesCategory1 =
         category1Filter === "" ||
         symbol.categories.some((cat) =>
@@ -90,6 +110,7 @@ export default function Diccionario() {
             quitarTildesEspaciosMinuscula(category1Filter)
           )
         );
+
       const matchesCategory2 =
         category2Filter === "" ||
         symbol.categories.some((cat) =>
@@ -97,10 +118,12 @@ export default function Diccionario() {
             quitarTildesEspaciosMinuscula(category2Filter)
           )
         );
-      return matchesWord && matchesCategory1 && matchesCategory2;
+
+      return matchesDictionary && matchesWord && matchesCategory1 && matchesCategory2;
     });
+
     setFilteredSymbols(filtered);
-  }, [symbolFilter, category1Filter, category2Filter, symbols]);
+  }, [symbolFilter, category1Filter, category2Filter, symbols, diccionario]);
 
   const openModal = (symbol) => {
     setSelectedSymbol(symbol);
@@ -163,6 +186,7 @@ export default function Diccionario() {
       body: JSON.stringify({
         names: { nameEs: editedSymbol.nameEs, nameEu: editedSymbol.nameEu },
         symbol: editedSymbol.jsonData,
+        dictionaryId: editedSymbol.dictionaryId,
       }),
     });
     const mensaje = await respuesta.json();
@@ -181,6 +205,9 @@ export default function Diccionario() {
       console.log(mensaje);
       setEditedSymbol(mensaje);
       setRefresh(refresh + 1);
+      setSymbolFilter("");
+      setCategory1Filter("");
+      setCategory2Filter("");
       closeModal();
     } catch (error) {
       console.log(error);
@@ -370,6 +397,120 @@ export default function Diccionario() {
     closeDeleteCategoryModal();
   };
 
+  const cambiarDiccionario = (diccionario) => {
+    console.log(diccionario);
+    setDiccionario(Number(diccionario));
+  };
+
+  // Modales Diccionario
+  const openDeleteDictionaryModal = () => setIsDeleteDictionaryModalOpen(true);
+  const closeDeleteDictionaryModal = () => setIsDeleteDictionaryModalOpen(false);
+  const handleConfirmDeleteDictionary = async () => {
+    const idelim = diccionarios[diccionario].id;
+    console.log("******************");
+    console.log(idelim);
+    try {
+      const respuesta = await fetch(`/api/diccionarios/${idelim}`, {
+        method: "DELETE",
+      });
+      const mensaje = await respuesta.json();
+      console.log(mensaje);
+      if (mensaje && mensaje.error) {
+        alert("Error al eliminar: " + mensaje.error);
+      } else {
+        try {
+          const response = await fetch("/api/diccionarios");
+          const diccionarios = await response.json();
+          setDiccionarios(diccionarios);
+        } catch (error) {
+          console.error("Error fetching dictionaries:", error);
+        }
+      }
+    } catch (error) {
+      console.log(error);
+    }
+    setDiccionario(0);
+    closeDeleteDictionaryModal();
+  };
+
+  const openAddDictionaryModal = () => setIsAddDictionaryModalOpen(true);
+  const closeAddDictionaryModal = () => {
+    setIsAddDictionaryModalOpen(false);
+    setNewDictionaryName("");
+  };
+  const handleConfirmAddDictionary = async () => {
+    try {
+      if (newDictionaryName.trim()) {
+        const respuesta = await fetch("/api/diccionarios", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: newDictionaryName,
+          }),
+        });
+        const mensaje = await respuesta.json();
+        console.log(mensaje);
+        if (mensaje && mensaje.error) {
+          alert("Error al guardar: " + mensaje.error);
+        } else {
+          try {
+            const response = await fetch("/api/diccionarios");
+            const dics = await response.json();
+            setDiccionarios(dics);
+          } catch (error) {
+            console.error("Error fetching dictionaries:", error);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error añadiendo diccionarios:", error);
+    }
+    closeAddDictionaryModal();
+  };
+
+  const openUpdateDictionaryModal = () => {
+    setNewDictionaryName(diccionarios[diccionario].name);
+    setIsUpdateDictionaryModalOpen(true);
+  };
+  const closeUpdateDictionaryModal = () => {
+    setIsUpdateDictionaryModalOpen(false);
+    setNewDictionaryName("");
+  };
+  const handleConfirmUpdateDictionary = async () => {
+    try {
+      const idUpdate = diccionarios[diccionario].id;
+      const respuesta = await fetch(`/api/diccionarios/${idUpdate}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: newDictionaryName,
+        }),
+      });
+      const mensaje = await respuesta.json();
+      console.log(mensaje);
+      if (mensaje && mensaje.error) {
+        alert("Error al actualizar: " + mensaje.error);
+      } else {
+        try {
+          const response = await fetch("/api/diccionarios");
+          const dics = await response.json();
+          setDiccionarios(dics);
+          setDiccionario(dics.length - 1);
+        } catch (error) {
+          console.error("Error fetching dictionaries:", error);
+        }
+      }
+    } catch (error) {
+      console.error("Error actualizando diccionarios:", error);
+    }
+
+    closeUpdateDictionaryModal();
+  };
+
   return (
     <div className="flex h-screen bg-gray-100">
       {/* Panel izquierdo */}
@@ -388,7 +529,10 @@ export default function Diccionario() {
           placeholder="Busca una palabra..."
           className="w-full p-2 border border-gray-300 rounded-md mb-4 focus:ring-slate-500 focus:border-slate-500"
           value={symbolFilter}
-          onChange={(e) => setSymbolFilter(e.target.value)}
+          onChange={(e) => {
+            setSymbolFilter(e.target.value);
+            setCurrentPage(0);
+          }}
           autoComplete="off"
         />
         <datalist id="symbolSuggestions">
@@ -409,7 +553,10 @@ export default function Diccionario() {
           placeholder="Escribe una categoría..."
           className="w-full p-2 border border-gray-300 rounded-md mb-4 focus:ring-slate-500 focus:border-slate-500"
           value={category1Filter}
-          onChange={(e) => setCategory1Filter(e.target.value)}
+          onChange={(e) => {
+            setCategory1Filter(e.target.value);
+            setCurrentPage(0);
+          }}
           autoComplete="off"
         />
         <datalist id="category1Suggestions">
@@ -430,7 +577,10 @@ export default function Diccionario() {
           placeholder="Escribe una categoría..."
           className="w-full p-2 border border-gray-300 rounded-md mb-4 focus:ring-slate-500 focus:border-slate-500"
           value={category2Filter}
-          onChange={(e) => setCategory2Filter(e.target.value)}
+          onChange={(e) => {
+            setCategory2Filter(e.target.value);
+            setCurrentPage(0);
+          }}
           autoComplete="off"
         />
         <datalist id="category2Suggestions">
@@ -438,6 +588,132 @@ export default function Diccionario() {
             <option key={index} value={`${category.nameEs} / ${category.nameEu}`} />
           ))}
         </datalist>
+        <h2 className="text-xl font-bold mb-2">Diccionario</h2>
+        <label htmlFor="diccionario" className="block text-sm font-medium text-gray-700 mb-1">
+          Selecciona un diccionario:
+        </label>
+
+        <div className="flex items-center gap-2 mb-4">
+          <select
+            id="diccionario"
+            name="diccionario"
+            className="flex-1 p-2 border border-gray-300 rounded-md focus:ring-slate-500 focus:border-slate-500"
+            value={diccionario}
+            onChange={(e) => cambiarDiccionario(e.target.value)}
+          >
+            {diccionarios.map((item, index) => (
+              <option key={index} value={index}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={openDeleteDictionaryModal}
+            className="bg-red-500 text-white px-2 py-2 rounded-md hover:bg-red-600 transition-colors"
+            title="Eliminar diccionario actual"
+          >
+            Eliminar
+          </button>
+        </div>
+        <button
+          key="modificar"
+          onClick={openUpdateDictionaryModal}
+          className="bg-blue-500 text-white px-4 py-2 mb-3 rounded-md hover:bg-blue-600 transition-colors w-full"
+        >
+          Modificar diccionario
+        </button>
+        <button
+          key="Añadir"
+          onClick={openAddDictionaryModal}
+          className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition-colors w-full"
+        >
+          Añadir diccionario
+        </button>
+        {/* Modal Eliminar Diccionario */}
+        {isDeleteDictionaryModalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+            <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm">
+              <h3 className="text-lg font-semibold mb-4">Confirmar eliminación</h3>
+              <p className="mb-6">
+                ¿Seguro que deseas eliminar el diccionario <strong>{diccionarios[diccionario].name}</strong>?
+              </p>
+              <div className="flex justify-end gap-2">
+                <button
+                  key="cancelar"
+                  onClick={closeDeleteDictionaryModal}
+                  className="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  key="eliminar"
+                  onClick={handleConfirmDeleteDictionary}
+                  className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
+                >
+                  Eliminar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* Modal Añadir Diccionario */}
+        {isAddDictionaryModalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+            <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm">
+              <h3 className="text-lg font-semibold mb-4">Añadir diccionario</h3>
+              <input
+                type="text"
+                placeholder="Nombre del diccionario"
+                value={newDictionaryName}
+                onChange={(e) => setNewDictionaryName(e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded-md mb-4 focus:ring-slate-500 focus:border-slate-500"
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={closeAddDictionaryModal}
+                  className="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleConfirmAddDictionary}
+                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                >
+                  Añadir
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* Modal Modificar Diccionario */}
+        {isUpdateDictionaryModalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+            <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm">
+              <h3 className="text-lg font-semibold mb-4">Modificar diccionario</h3>
+              <input
+                type="text"
+                placeholder="Nombre del diccionario"
+                value={newDictionaryName}
+                onChange={(e) => setNewDictionaryName(e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded-md mb-4 focus:ring-slate-500 focus:border-slate-500"
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={closeUpdateDictionaryModal}
+                  className="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleConfirmUpdateDictionary}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                >
+                  Modificar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Panel derecho */}
@@ -502,6 +778,17 @@ export default function Diccionario() {
               <div className="w-1/2 p-4 overflow-y-auto">
                 <div className="space-y-1">
                   <h3 className="text-xl font-bold mb-4">Editar Símbolo</h3>
+                  <div className="mb-4">
+                    <label htmlFor="dictionary" className="block text-sm font-medium text-gray-700 mb-1">
+                      Diccionario:
+                    </label>
+                    <p
+                      id="dictionary"
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-slate-500 focus:border-slate-500"
+                    >
+                      {diccionarios[diccionario].name}
+                    </p>
+                  </div>
                   <div className="mb-4">
                     <label htmlFor="editNameEs" className="block text-sm font-medium text-gray-700 mb-1">
                       Nombre (Español):

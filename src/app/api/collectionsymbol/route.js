@@ -23,36 +23,27 @@ export async function POST(request, { params }) {
   // Simulate fetching data from a database or external API
   // Comprobamos que esté autorizado
   const session = await getSession();
-  const { categoryId, symbolId } = await request.json();
+  const { collectionId, symbolId } = await request.json();
   if (!(session && session.user && session.user.email)) {
     return NextResponse.json({ error: "No estás autorizado" });
   }
   try {
-    const simbolo = await prisma.symbol.findUnique({
-      where: { id: Number(symbolId) },
+    const collection = await prisma.collection.findFirst({
+      where: {
+        id: Number(collectionId),
+        email: session.user.email,
+      },
     });
-    if (simbolo.dictionaryId == 0) {
-      if (!isadmin(session.user.email)) {
-        return NextResponse.json({ error: "Sólo administradores pueden gestionar el diccionario Oficial" });
-      }
-    } else {
-      const dict = await prisma.dictionary.findFirst({
-        where: {
-          id: simbolo.dictionaryId,
-          email: session.user.email,
-        },
-      });
-      if (!dict) {
-        return NextResponse.json({ error: "No estás autorizado" });
-      }
+    if (!collection) {
+      return NextResponse.json({ error: "No estás autorizado" });
     }
   } catch (error) {
     console.log("Error en la consulta de diccionario: ", error);
     return NextResponse.json({ error: "No autorizado" });
   }
   try {
-    const newRelation = await prisma.symbolCategory.create({
-      data: { categoryId, symbolId },
+    const newRelation = await prisma.collectionSymbol.create({
+      data: { collectionId, symbolId },
     });
     return NextResponse.json(newRelation);
   } catch (error) {

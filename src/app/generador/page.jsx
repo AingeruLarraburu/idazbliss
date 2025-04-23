@@ -69,6 +69,8 @@ export default function Generador() {
   const [selectedRectangleIndices, setSelectedRectangleIndices] = useState([]);
   const [selectedCurveIndices, setSelectedCurveIndices] = useState([]);
   const [selectedArcIndices, setSelectedArcIndices] = useState([]);
+  const [diccionarios, setDiccionarios] = useState([{ id: -1, name: "none" }]);
+  const [diccionario, setDiccionario] = useState(0);
 
   const handleEsChange = (event) => {
     setEs(event.target.value);
@@ -89,6 +91,7 @@ export default function Generador() {
       },
       body: JSON.stringify({
         names: { nameEs: es, nameEu: eus },
+        dictionaryId: diccionarios[diccionario].id,
         symbol: normalized,
       }),
     });
@@ -870,6 +873,11 @@ export default function Generador() {
     }
   }
 
+  const cambiarDiccionario = (diccionario) => {
+    console.log(diccionario);
+    setDiccionario(Number(diccionario));
+  };
+
   function unselectDelete() {
     setLines((prevLines) => prevLines.filter((_, index) => !selectedLineIndices.includes(index)));
     setCircles((prevCircles) => prevCircles.filter((_, index) => !selectedCircleIndices.includes(index)));
@@ -918,6 +926,20 @@ export default function Generador() {
     return () => {
       window.removeEventListener("wheel", handleWheel);
     };
+  }, []);
+
+  useEffect(() => {
+    // Cargar diccionarios
+    const fetchDictionaries = async () => {
+      try {
+        const response = await fetch("/api/diccionarios");
+        const diccionarios = await response.json();
+        setDiccionarios(diccionarios);
+      } catch (error) {
+        console.error("Error fetching dictionaries:", error);
+      }
+    };
+    fetchDictionaries();
   }, []);
 
   return (
@@ -1733,6 +1755,24 @@ export default function Generador() {
               className="flex-1 p-1 border border-gray-400 rounded focus:outline-none focus:ring-2 focus:ring-slate-500"
             />
           </div>
+          <div className="flex w-full items-center">
+            <label htmlFor="diccionario" className="flex-shrink-0 mr-2 font-medium">
+              Diccionario:
+            </label>
+            <select
+              id="diccionario"
+              name="diccionario"
+              className="flex-grow p-1 border border-gray-300 rounded-md focus:ring-slate-500 focus:border-slate-500"
+              value={diccionario}
+              onChange={(e) => cambiarDiccionario(e.target.value)}
+            >
+              {diccionarios.map((item, index) => (
+                <option key={index} value={index}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
           {/* Botón de guardar */}
           <button
@@ -1746,6 +1786,7 @@ export default function Generador() {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
             <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full">
               <h2 className="text-xl font-bold mb-4">Confirmar guardado</h2>
+              <p className="mb-1">Diccionario: {diccionarios[diccionario].name}</p>
               <p className="mb-1">Español: {es}</p>
               <p className="mb-1">Euskara: {eus}</p>
               <p className="mb-1">Símbolo:</p>

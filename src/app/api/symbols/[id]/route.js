@@ -25,14 +25,34 @@ export async function GET(request, { params }) {
 
 export async function PUT(request, { params }) {
   // Simulate fetching data from a database or external API
-  const { names, symbol } = await request.json();
+  const { names, symbol, dictionaryId } = await request.json();
   console.log(names);
   console.log(symbol);
+  console.log(dictionaryId);
   const languageKeys = ["nameEs", "nameEu"];
   const symbolKeys = ["lines", "circles", "curves", "arcs", "rectangles", "width"];
   // Comprobamos que esté autorizado
   const session = await getSession();
-  if (!(session && session.user && session.user.email && isadmin(session.user.email))) {
+  if (!(session && session.user && session.user.email)) {
+    return NextResponse.json({ error: "No estás logueado" });
+  }
+  try {
+    if (dictionaryId == 0) {
+      if (!isadmin(session.user.email)) {
+        return NextResponse.json({ error: "Sólo administradores pueden gestionar el diccionario Oficial" });
+      }
+    } else {
+      const dict = await prisma.dictionary.findFirst({
+        where: {
+          id: dictionaryId,
+          email: session.user.email,
+        },
+      });
+      if (!dict) {
+        return NextResponse.json({ error: "No estás autorizado" });
+      }
+    }
+  } catch (error) {
     return NextResponse.json({ error: "No estás autorizado" });
   }
   // Comprobamos que los parámetros recibidos son json
@@ -73,6 +93,7 @@ export async function PUT(request, { params }) {
     for (const key in names) {
       toCreate[key] = names[key];
     }
+    toCreate.dictionaryId = dictionaryId;
     const newSymbol = await prisma.symbol.update({
       where: { id: Number(params.id) },
       data: toCreate, // Pasamos el objeto con los datos del nuevo símbolo
@@ -88,8 +109,31 @@ export async function PUT(request, { params }) {
 export async function DELETE(request, { params }) {
   // Comprobamos que esté autorizado
   const session = await getSession();
-  if (!(session && session.user && session.user.email && isadmin(session.user.email))) {
-    return NextResponse.json({ error: "No estás autorizado" });
+  if (!(session && session.user && session.user.email)) {
+    return NextResponse.json({ error: "No estás logueado" });
+  }
+  try {
+    const simbolo = await prisma.symbol.findUnique({
+      where: { id: Number(params.id) },
+    });
+    if (simbolo.dictionaryId == 0) {
+      if (!isadmin(session.user.email)) {
+        return NextResponse.json({ error: "Sólo administradores pueden gestionar el diccionario Oficial" });
+      }
+    } else {
+      const dict = await prisma.dictionary.findFirst({
+        where: {
+          id: simbolo.dictionaryId,
+          email: session.user.email,
+        },
+      });
+      if (!dict) {
+        return NextResponse.json({ error: "No estás autorizadillo" });
+      }
+    }
+  } catch (error) {
+    console.log("Error en la consulta de diccionario: ", error);
+    return NextResponse.json({ error: "No autorizado" });
   }
   try {
     console.log("Symbol removing");

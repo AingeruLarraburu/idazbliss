@@ -7,7 +7,21 @@ import { getSession, isadmin } from "@/libs/auth";
 export async function GET() {
   try {
     // Obtener todos los registros de la tabla symbol y las categorías asociadas
+    const session = await getSession();
+    const user = session?.user?.email || "No user";
+    console.log("Usuario: " + user);
+
     const symbols = await prisma.symbol.findMany({
+      where: {
+        OR: [
+          { dictionaryId: 0 },
+          {
+            dictionary: {
+              email: user,
+            },
+          },
+        ],
+      },
       include: {
         categories: {
           include: {
@@ -17,7 +31,6 @@ export async function GET() {
       },
     });
 
-    // Retornar la respuesta con los datos en formato JSON
     return NextResponse.json(symbols);
   } catch (error) {
     console.error("Error fetching symbols:", error);
@@ -29,10 +42,13 @@ export async function GET() {
 
 export async function POST(request, { params }) {
   // Simulate fetching data from a database or external API
-  const { names, symbol } = await request.json();
+  const { names, symbol, dictionaryId } = await request.json();
   const session = await getSession();
-  if (!(session && session.user && session.user.email && isadmin(session.user.email))) {
-    return NextResponse.json({ error: "No estás autorizado" });
+  if (!(session && session.user && session.user.email)) {
+    return NextResponse.json({ error: "No estás logeado" });
+  }
+  if (dictionaryId == 0 && !isadmin(session.user.email)) {
+    return NextResponse.json({ error: "Sólo administradores pueden gestionar el diccionario Oficial" });
   }
   const languageKeys = ["nameEs", "nameEu"];
   const symbolKeys = ["lines", "circles", "curves", "arcs", "rectangles", "width"];
@@ -69,6 +85,9 @@ export async function POST(request, { params }) {
 
   try {
     const symbols = await prisma.symbol.findMany({
+      where: {
+        dictionaryId: dictionaryId,
+      },
       select: {
         nameEs: true,
         nameEu: true,
@@ -91,6 +110,7 @@ export async function POST(request, { params }) {
       for (const key in names) {
         toCreate[key] = names[key];
       }
+      toCreate.dictionaryId = dictionaryId;
       const newSymbol = await prisma.symbol.create({
         data: toCreate, // Pasamos el objeto con los datos del nuevo símbolo
       });
