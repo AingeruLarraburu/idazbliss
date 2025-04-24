@@ -374,7 +374,7 @@ export default function Juegos() {
               Empezar
             </button>
             <div className="mt-8 w-full text-center">
-              <h2 className="text-xl font-semibold mb-2">Mejores jugadas:</h2>
+              <h2 className="text-xl font-semibold mb-2">Mejores Jugadas:</h2>
               <table className="min-w-full bg-white border border-gray-200">
                 <thead className="bg-gray-100">
                   <tr>
