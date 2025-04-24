@@ -14,6 +14,7 @@ export default function Navbar() {
     { name: "Colecciones", link: "/colecciones" },
     { name: "Juegos", link: "/juegos" },
     { name: "Tutoriales", link: "/tutoriales" },
+    { name: "Manuales", link: "/manuales" },
   ];
 
   const pathname = usePathname();
