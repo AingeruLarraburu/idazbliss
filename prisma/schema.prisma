@@ -1,9 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -14,40 +11,76 @@ datasource db {
 }
 
 model Symbol {
-  id          Int         @id @default(autoincrement())
-  jsonData    Json        @map("json_data")
-  nameEs      String?     @map("name_es") // Este nombre hay que ponerlo en el .env
-  nameEu      String?     @map("name_eu") // Este nombre hay que ponerlo en el .env
-  createdAt   DateTime    @default(now()) @map("created_at")
-  categories  SymbolCategory[]
+  id            Int                @id @default(autoincrement())
+  jsonData      Json               @map("json_data")
+  nameEs        String?            @map("name_es")
+  nameEu        String?            @map("name_eu")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  // Nuevo campo: diccionario al que pertenece
+  dictionaryId  Int                @default(0) @map("dictionary_id")
+  dictionary    Dictionary         @relation(fields: [dictionaryId], references: [id], onDelete: Cascade)
+  collections CollectionSymbol[]
+
+  categories    SymbolCategory[]
 
   @@map("symbol")
-  @@unique([nameEs])
-  @@unique([nameEu])
-  //@@check("name_required", "name_es IS NOT NULL OR name_eu IS NOT NULL")
+  @@unique([nameEs, dictionaryId])
+  @@unique([nameEu, dictionaryId])
 }
 
 model Category {
-  id          Int         @id @default(autoincrement())
-  nameEs      String?     @map("name_es") // Este nombre hay que ponerlo en el .env
-  nameEu      String?     @map("name_eu") // Este nombre hay que ponerlo en el .env
-  createdAt   DateTime    @default(now()) @map("created_at")
-  symbols     SymbolCategory[]
+  id        Int               @id @default(autoincrement())
+  nameEs    String?           @map("name_es")
+  nameEu    String?           @map("name_eu")
+  createdAt DateTime          @default(now()) @map("created_at")
+  symbols   SymbolCategory[]
 
   @@map("category")
   @@unique([nameEs])
   @@unique([nameEu])
- //@@check("name_required", "name_es IS NOT NULL OR name_eu IS NOT NULL")
 }
 
 model SymbolCategory {
-  id          Int         @id @default(autoincrement())
-  symbolId    Int
-  categoryId  Int
-  Symbol      Symbol      @relation(fields: [symbolId], references: [id], onDelete: Cascade)
-  Category    Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  id          Int       @id @default(autoincrement())
+  symbolId    Int       
+  categoryId  Int       
+  Symbol      Symbol    @relation(fields: [symbolId], references: [id], onDelete: Cascade)
+  Category    Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   @@map("symbol_category")
-  @@unique([symbolId, categoryId]) // Asegura que no haya duplicados
+  @@unique([symbolId, categoryId])
 }
 
+// Tabla de diccionarios personalizados
+model Dictionary {
+  id        Int       @id @default(autoincrement()) // Inserta manualmente el registro inicial con id = 0
+  email     String                                  // Gmail del creador
+  name      String                                  // Nombre del diccionario
+  symbols   Symbol[]                                // Relación inversa
+
+  @@map("dictionary")
+  @@unique([email, name]) 
+}
+
+// Tabla de colecciones de símbolos
+model Collection {
+  id        Int                 @id @default(autoincrement())
+  email     String              // Gmail del creador
+  name      String              // Nombre de la colección
+  items     CollectionSymbol[]  // Relaciones a símbolos
+
+  @@map("collection")
+  @@unique([email, name]) 
+}
+
+// Relación many-to-many entre Collection y Symbol
+model CollectionSymbol {
+  id           Int        @id @default(autoincrement())
+  collectionId Int        @map("collection_id")
+  symbolId     Int        @map("symbol_id")
+  Collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  Symbol       Symbol     @relation(fields: [symbolId], references: [id], onDelete: Cascade)
+
+  @@map("collection_symbol")
+  @@unique([collectionId, symbolId])
+}

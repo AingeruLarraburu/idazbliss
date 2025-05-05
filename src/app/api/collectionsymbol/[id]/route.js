@@ -2,6 +2,28 @@ import { NextResponse } from "next/server";
 import prisma from "@/libs/db";
 import { getSession, isadmin } from "@/libs/auth";
 
+async function isCollectionOwnedByEmail(collectionSymbolId, email) {
+  try {
+    const collectionSymbol = await prisma.collectionSymbol.findUnique({
+      where: { id: Number(collectionSymbolId) },
+      include: {
+        Collection: true,
+      },
+    });
+
+    if (!collectionSymbol) {
+      console.log("CollectionSymbol no encontrado");
+      return false;
+    }
+    console.log("Email:", email);
+    console.log("CollectionSymbol email:", collectionSymbol.Collection.email);
+    return collectionSymbol.Collection.email === email;
+  } catch (error) {
+    console.error("Error al verificar el propietario de la colección:", error);
+    return false;
+  }
+}
+
 /* export async function GET(request, { params }) {
   const task = await prisma.task.findUnique({ where: { id: Number(params.id) } });
   return NextResponse.json(task);
@@ -26,34 +48,11 @@ export async function DELETE(request, { params }) {
   if (!(session && session.user && session.user.email)) {
     return NextResponse.json({ error: "No estás autorizado" });
   }
-  try {
-    const symbolcategory = await prisma.symbolCategory.findUnique({
-      where: { id: Number(params.id) },
-    });
-    const simbolo = await prisma.symbol.findUnique({
-      where: { id: Number(symbolcategory.symbolId) },
-    });
-    if (simbolo.dictionaryId == 0) {
-      if (!isadmin(session.user.email)) {
-        return NextResponse.json({ error: "Sólo administradores pueden gestionar el diccionario Oficial" });
-      }
-    } else {
-      const dict = await prisma.dictionary.findFirst({
-        where: {
-          id: Number(simbolo.dictionaryId),
-          email: session.user.email,
-        },
-      });
-      if (!dict) {
-        return NextResponse.json({ error: "No estás autorizado" });
-      }
-    }
-  } catch (error) {
-    console.log("Error en la consulta de diccionario: ", error);
-    return NextResponse.json({ error: "No autorizado" });
+  if (!isCollectionOwnedByEmail(params.id, session.user.email)) {
+    return NextResponse.json({ error: "No puedes borrar una colección que no es tuya" });
   }
   try {
-    const relationRemoved = await prisma.symbolCategory.delete({ where: { id: Number(params.id) } });
+    const relationRemoved = await prisma.collectionSymbol.delete({ where: { id: Number(params.id) } });
     return NextResponse.json(relationRemoved);
   } catch (error) {
     return NextResponse.json(error.message);
