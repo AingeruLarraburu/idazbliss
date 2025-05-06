@@ -5,51 +5,63 @@ import { motion, useAnimation } from "framer-motion";
 import { useInView } from "react-intersection-observer";
 import { Menu } from "lucide-react"; // Asegúrate de tener instalado lucide-react
 
-const VIDEO_ID = "1yXXNYbAN8r3t9O2vTZN6XJdQtmlFEBW9";
-const DRIVE_EMBED_BASE = `https://drive.google.com/file/d/${VIDEO_ID}/preview`;
+const GENERADOR_ID = "1sHqq3iwf10-ipu061q4qGszFlSNWmKqy";
+const GENERADOR_BASE = `https://drive.google.com/file/d/${GENERADOR_ID}/preview`;
+
+const DICCIONARIO_ID = "1Rx7xBgYF2blmofDp6l1HD9E3EzTwGQrh";
+const DICCIONARIO_BASE = `https://drive.google.com/file/d/${DICCIONARIO_ID}/preview`;
+
+const TRADUCTOR_ID = "1UeUX-eqBpxG67WpGlG1DnQ75MuY8zJQ6";
+const TRADUCTOR_BASE = `https://drive.google.com/file/d/${TRADUCTOR_ID}/preview`;
+
+const COLECCIONES_ID = "1X-wHiGkhhdxo2Vx_RVhwG3naio5Kh4ln";
+const COLECCIONES_BASE = `https://drive.google.com/file/d/${COLECCIONES_ID}/preview`;
+
+const JUEGOS_ID = "1w8nWxOKsQzg--D1EcJZHUG-SAwDSYRQV";
+const JUEGOS_BASE = `https://drive.google.com/file/d/${JUEGOS_ID}/preview`;
 
 const manuals = [
-  {
-    id: "generador",
-    title: "Generador",
-    color: "bg-blue-100",
-    description: `Crea símbolos combinando formas y elementos básicos.\nUtiliza el generador para diseñar nuevos símbolos personalizados.`,
-    embedUrl: DRIVE_EMBED_BASE,
-  },
   {
     id: "diccionario",
     title: "Diccionario",
     color: "bg-green-100",
     description: `Navega por todos los símbolos disponibles con definiciones y ejemplos.\nFiltra por categoría o busca directamente por nombre.`,
-    embedUrl: DRIVE_EMBED_BASE,
+    embedUrl: DICCIONARIO_BASE,
+  },
+  {
+    id: "generador",
+    title: "Generador",
+    color: "bg-blue-100",
+    description: `Crea símbolos combinando formas y elementos básicos.\nUtiliza el generador para diseñar nuevos símbolos personalizados.`,
+    embedUrl: GENERADOR_BASE,
   },
   {
     id: "traductor",
     title: "Traductor",
     color: "bg-yellow-100",
     description: `Convierte texto a símbolos Bliss o símbolos Bliss a texto.\nIdeal para practicar y comprobar traducciones.`,
-    embedUrl: DRIVE_EMBED_BASE,
+    embedUrl: TRADUCTOR_BASE,
   },
   {
     id: "colecciones",
     title: "Colecciones",
     color: "bg-pink-100",
     description: `Organiza tus símbolos en colecciones a tu medida.\nCrea y edita conjuntos de símbolos.`,
-    embedUrl: DRIVE_EMBED_BASE,
+    embedUrl: COLECCIONES_BASE,
   },
   {
     id: "juegos",
     title: "Juegos",
     color: "bg-purple-100",
     description: `Pon a prueba tus conocimientos con diferentes juegos.`,
-    embedUrl: DRIVE_EMBED_BASE,
+    embedUrl: JUEGOS_BASE,
   },
   {
     id: "tutoriales",
     title: "Tutoriales",
     color: "bg-red-100",
     description: `Accede a guías para comprender y dominar el lenguaje de símbolos Bliss.`,
-    embedUrl: DRIVE_EMBED_BASE,
+    embedUrl: JUEGOS_BASE,
   },
 ];
 
