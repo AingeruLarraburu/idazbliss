@@ -12,6 +12,7 @@ import {
 
 function Symbol({ symbol, className }) {
   const boxW = symbol.width * squareSize;
+  const renglones = 0;
   //console.log(symbol.rectangles[0].width);
   return (
     <div className={`${className} flex`}>
@@ -20,23 +21,27 @@ function Symbol({ symbol, className }) {
         className="flex-1 max-w-full max-h-full"
         viewBox={`-2 -2 ${boxW + 4} ${viewBoxHeight + 4}`}
       >
-        {Array.from({ length: numVertical }).map((_, rowIndex) =>
-          Array.from({ length: symbol.width }).map((_, colIndex) => (
-            <rect
-              key={`${rowIndex}-${colIndex}`}
-              x={colIndex * squareSize}
-              y={rowIndex * squareSize}
-              width={squareSize}
-              height={squareSize}
-              fill="none"
-              stroke="gray"
-              strokeWidth="0.5"
-              strokeLinejoin="round"
-            />
-          ))
+        {renglones === 1 && (
+          <>
+            {Array.from({ length: numVertical }).map((_, rowIndex) =>
+              Array.from({ length: symbol.width }).map((_, colIndex) => (
+                <rect
+                  key={`${rowIndex}-${colIndex}`}
+                  x={colIndex * squareSize}
+                  y={rowIndex * squareSize}
+                  width={squareSize}
+                  height={squareSize}
+                  fill="none"
+                  stroke="gray"
+                  strokeWidth="0.5"
+                  strokeLinejoin="round"
+                />
+              ))
+            )}
+            <line x1="0" y1={firstDivision} x2={boxW} y2={firstDivision} stroke="grey" strokeWidth="2" />
+            <line x1="0" y1={secondDivision} x2={boxW} y2={secondDivision} stroke="grey" strokeWidth="2" />
+          </>
         )}
-        <line x1="0" y1={firstDivision} x2={boxW} y2={firstDivision} stroke="grey" strokeWidth="2" />
-        <line x1="0" y1={secondDivision} x2={boxW} y2={secondDivision} stroke="grey" strokeWidth="2" />
         {symbol.lines?.map((line, index) => (
           <line
             key={index}
