@@ -42,12 +42,12 @@ async function traduccionIA(frase) {
     /* Yo soy guapo */
     {
       id: 1582,
-      nombre: 'yo, a mi, me, yo mismo/a',
+      nombre: 'yo',
       modificador: 'ninguno'
     },
     {
       id: 1284,
-      nombre: 'existir, ser, estar',
+      nombre: 'ser',
       modificador: 'presente'
     },
     { id: 1213, nombre: 'guapo', modificador: 'ninguno' }
@@ -79,35 +79,22 @@ async function traduccionIA(frase) {
     { id: 1423, nombre: 'llover', modificador: 'condicionalPasado' },
     { id: 1517, nombre: 'ver', modificador: 'condicionalPasado' },
     { id: 1723, nombre: 'película', modificador: 'ninguno' }
-     /* Voy al coche */
-    {
-      id: 1582,
-      nombre: 'yo, a mi, me, yo mismo/a',
-      modificador: 'ninguno'
-    },
-    { id: 1332, nombre: 'ir', modificador: 'presente' },
-    { id: 191, nombre: 'coche', modificador: 'ninguno' }
-     /* Iré al coche */
-    {
-      id: 1582,
-      nombre: 'yo, a mi, me, yo mismo/a',
-      modificador: 'ninguno'
-    },
-    { id: 1332, nombre: 'ir', modificador: 'futuro' },
-    { id: 191, nombre: 'coche', modificador: 'ninguno' }
      /* Hola ¿Qué tal? */
     { id: 1263, nombre: 'hola', modificador: 'ninguno' },
     { id: 534, nombre: 'cómo (pregunta)', modificador: 'ninguno' },
     {
-      id: 1284,
-      nombre: 'existir, ser, estar',
+      id: 1914,
+      nombre: 'estar',
       modificador: 'presente'
     }
   ]
 Ten en cuenta que la mayoría no necesita modificador, en cuyo caso la key modificador debe valer "ninguno". Si no está el símbolo que necesitas pon id: -1, nombre: (el que tu necesitas) modificador: (el que necesites)\n`;
   pregunta += `\nTambién es importante que adaptes la frase al Bliss. Adaptaciones como por ejemplo saber que "voy", en Bliss es "yo" e "ir"\n`;
+  pregunta += `\nUtiliza tu comprensión del lenguaje y pon de manera explícita el contenido de la frase: Si la frase es 'Vi un animal' en Bliss debe ser 'Yo', 'ver (pasado)', 'un', 'animal'"\n`;
+  pregunta += `\nUtiliza tu comprensión del lenguaje y el contexto de la frase para diferenciar entre vino (verbo) y vino (bebida) o Fue (ser) de Fue (ir), etc.\n`;
   pregunta += `\nPresta especial atención a si es primera, segunda o tercera persona, y si es singular o plural. Dedúcelo de los verbos y el contexto, y siempre introdúcelo aunque no esté en la frase"\n`;
   pregunta += `\nEs de extrema importancia que me des el nombre del símbolo literalmente como te lo paso, recuerda, cada linea es uno:\n`;
+  pregunta += `\nPreprocesa la frase ante de traducir, por ejemplo, si la frase es caminaré a casa, traduce yo caminaré a casa, si la frase es caminará a casa, traduce él caminará a casa\n`;
   pregunta += `\nLa frase es:\n`;
   pregunta += `${frase}\n`;
   console.log("Pregunta:", pregunta);
